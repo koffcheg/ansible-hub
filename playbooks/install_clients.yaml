@@ -1,0 +1,7 @@
+---
+- name: Install VPN configs from secrets
+  hosts: vpn_clients
+  gather_facts: false
+  roles:
+    - role: vpn_client
+      tasks_from: install.yaml
