@@ -1,0 +1,6 @@
+*.b64
+secrets/
+__pycache__/
+*.pyc
+*.log
+.env

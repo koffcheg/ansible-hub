@@ -1,0 +1,18 @@
+# roles/factory_usb/tasks/main.yaml
+- name: Create directory for USB payload
+  file:
+    path: "factory-usb/{{ inventory_hostname }}"
+    state: directory
+    mode: '0755'
+
+- name: Copy .ovpn bundle to USB folder
+  copy:
+    src: "secrets/{{ inventory_hostname }}.ovpn"
+    dest: "factory-usb/{{ inventory_hostname }}/{{ inventory_hostname }}.ovpn"
+    mode: '0600'
+
+- name: Generate install.sh from template
+  template:
+    src: install.sh.j2
+    dest: "factory-usb/{{ inventory_hostname }}/install.sh"
+    mode: '0755'

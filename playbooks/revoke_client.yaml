@@ -1,0 +1,8 @@
+- name: Revoke client cert
+  hosts: clients
+  gather_facts: no
+
+  tasks:
+    - import_role:
+        name: vpn_cert
+        tasks_from: revoke

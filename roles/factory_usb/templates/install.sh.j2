@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -e
+
+echo "Installing VPN config..."
+
+sudo cp "{{ inventory_hostname }}.ovpn" /etc/openvpn/{{ inventory_hostname }}.conf
+sudo systemctl enable openvpn-client@{{ inventory_hostname }}
+sudo systemctl start openvpn-client@{{ inventory_hostname }}
+
+echo "VPN config installed and started."

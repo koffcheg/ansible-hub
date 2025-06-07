@@ -1,0 +1,8 @@
+- name: Upload .ovpn to GCP Secret Manager
+  delegate_to: localhost
+  run_once: true
+  shell: |
+    gcloud secrets versions add NODE-{{ inventory_hostname }} \
+      --data-file="./secrets/{{ inventory_hostname }}.ovpn"
+  environment:
+    CLOUDSDK_CORE_PROJECT: "{{ gcp_project_id }}"

@@ -1,0 +1,13 @@
+- name: Validate OpenVPN client status
+  hosts: clients
+  gather_facts: no
+
+  tasks:
+    - name: Ensure OpenVPN service is running
+      systemd:
+        name: "openvpn-client@{{ inventory_hostname }}"
+        state: started
+      register: status
+
+    - debug:
+        msg: "Client {{ inventory_hostname }}: {{ status }}"

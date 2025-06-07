@@ -1,0 +1,19 @@
+- name: Rotate certs without connection interruption
+  hosts: clients
+  gather_facts: no
+
+  tasks:
+    - import_role:
+        name: vpn_cert
+        tasks_from: rotate_prepare
+
+    - import_role:
+        name: openvpn_client
+        tasks_from: swap_and_restart
+
+    - import_role:
+        name: vpn_cert
+        tasks_from: rotate_finalize
+
+    - import_role:
+        name: secret_sync
