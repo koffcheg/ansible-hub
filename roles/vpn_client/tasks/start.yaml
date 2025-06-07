@@ -1,4 +1,3 @@
-# roles/openvpn_client/tasks/start.yaml
 - name: Enable and start OpenVPN client service
   systemd:
     name: "openvpn-client@{{ inventory_hostname }}"

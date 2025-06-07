@@ -1,0 +1,3 @@
+- name: Fetch VPN config from GCP Secret Manager
+  command: python3 {{ playbook_dir }}/../secrets/fetch_vpn_secret.py {{ inventory_hostname }}
+  become: false

@@ -1,8 +1,19 @@
-# roles/openvpn_client/tasks/install.yaml
-- name: Copy .ovpn config to client
+---
+- name: Fetch VPN client secret from GCP Secret Manager
+  google.cloud.gcp_secretmanager_secret_info:
+    project: "{{ gcp_project_id }}"
+    name: "{{ gcp_secrets_prefix }}{{ inventory_hostname }}"
+  register: vpn_secret_meta
+
+- name: Access latest version of secret
+  google.cloud.gcp_secretmanager_secret_version_access:
+    project: "{{ gcp_project_id }}"
+    secret: "{{ gcp_secrets_prefix }}{{ inventory_hostname }}"
+    version: latest
+  register: vpn_secret_access
+
+- name: Decode and write VPN config
   copy:
-    src: "secrets/{{ inventory_hostname }}.ovpn"
+    content: "{{ vpn_secret_access.data | b64decode }}"
     dest: "/etc/openvpn/{{ inventory_hostname }}.conf"
-    owner: root
-    group: root
-    mode: '0600'
+    mode: "0600"

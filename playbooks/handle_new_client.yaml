@@ -1,19 +1,25 @@
-- name: Onboard new VPN clients
-  hosts: clients
+- name: Create and provision new VPN client
+  hosts: all
   gather_facts: no
-
+  vars:
+    vpn_client_name: "{{ inventory_hostname }}"
   tasks:
-    - import_role:
+    - name: Generate VPN certificate
+      import_role:
         name: vpn_cert
-        tasks_from: create
+      tasks_from: create
 
-    - import_role:
-        name: openvpn_client
-        tasks_from: install
+    - name: Upload VPN client config to GCP Secret Manager
+      import_role:
+        name: gcp_secret_sync
+      tasks_from: upload
 
-    - import_role:
-        name: openvpn_client
-        tasks_from: start
+    - name: Pull client config from GCP
+      import_role:
+        name: vpn_client
+      tasks_from: install
 
-    - import_role:
-        name: secret_sync
+    - name: Start VPN client
+      import_role:
+        name: vpn_client
+      tasks_from: start

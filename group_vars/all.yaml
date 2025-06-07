@@ -1,2 +1,4 @@
 ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
-gcp_project_id: your-gcp-project-id
+gcp_project_id: twitter-backup-371709
+gcp_secrets_prefix: vpn-client-
+secret_location: projects/{{ gcp_project_id }}/secrets

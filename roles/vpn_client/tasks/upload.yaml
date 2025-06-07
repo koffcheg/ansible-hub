@@ -1,0 +1,15 @@
+---
+- name: Create VPN secret if not exists
+  google.cloud.gcp_secretmanager_secret:
+    name: "{{ gcp_secrets_prefix }}{{ inventory_hostname }}"
+    project: "{{ gcp_project_id }}"
+    replication:
+      automatic: {}
+    state: present
+
+- name: Upload VPN client bundle
+  google.cloud.gcp_secretmanager_secret_version:
+    secret: "{{ gcp_secrets_prefix }}{{ inventory_hostname }}"
+    project: "{{ gcp_project_id }}"
+    data: "{{ lookup('file', 'client-configs/{{ inventory_hostname }}/bundle.json') | b64encode }}"
+

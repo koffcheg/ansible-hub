@@ -1,0 +1,7 @@
+---
+- name: Remove VPN client secrets
+  hosts: vpn_clients
+  gather_facts: false
+  roles:
+    - role: vpn_client
+      tasks_from: delete.yaml

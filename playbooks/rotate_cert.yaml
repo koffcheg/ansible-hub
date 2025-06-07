@@ -8,7 +8,7 @@
         tasks_from: rotate_prepare
 
     - import_role:
-        name: openvpn_client
+        name: vpn_client
         tasks_from: swap_and_restart
 
     - import_role:

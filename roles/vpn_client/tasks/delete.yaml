@@ -1,0 +1,6 @@
+---
+- name: Delete VPN secret
+  google.cloud.gcp_secretmanager_secret:
+    name: "{{ gcp_secrets_prefix }}{{ inventory_hostname }}"
+    project: "{{ gcp_project_id }}"
+    state: absent
