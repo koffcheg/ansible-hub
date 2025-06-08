@@ -1,2 +1,2 @@
 - name: Dispatch vpn_cert task
-  include_tasks: "{{ action }}.yaml"
+  include_tasks: "{{ vpn_action }}.yaml"
