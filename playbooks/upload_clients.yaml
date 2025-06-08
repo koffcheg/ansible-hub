@@ -1,7 +1,8 @@
----
-- name: Upload VPN secrets for all clients
-  hosts: vpn_clients
+- name: Upload .ovpn to GCP Secret Manager
+  hosts: localhost
   gather_facts: false
+  vars:
+    name: "{{ name }}"
   roles:
     - role: vpn_client
-      tasks_from: upload.yaml
+      tasks_from: upload

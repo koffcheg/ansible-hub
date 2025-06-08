@@ -1,7 +1,8 @@
----
-- name: Remove VPN client secrets
-  hosts: vpn_clients
+- name: Delete client secret from GCP (on hub)
+  hosts: localhost
   gather_facts: false
+  vars:
+    name: "{{ name }}"
   roles:
     - role: vpn_client
-      tasks_from: delete.yaml
+      tasks_from: delete

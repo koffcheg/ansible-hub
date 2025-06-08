@@ -1,7 +1,8 @@
----
-- name: Install VPN configs from secrets
-  hosts: vpn_clients
-  gather_facts: false
+- name: Install OpenVPN config from Secret Manager
+  hosts: "{{ name }}"
+  become: true
+  vars:
+    name: "{{ name }}"
   roles:
     - role: vpn_client
-      tasks_from: install.yaml
+      tasks_from: install

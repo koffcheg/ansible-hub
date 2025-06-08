@@ -1,21 +1,7 @@
-- name: Prepare USB payload for factory
-  hosts: clients
-  gather_facts: no
-
-  tasks:
-    - name: Create output folder
-      file:
-        path: "./factory-usb/{{ inventory_hostname }}"
-        state: directory
-        mode: '0755'
-
-    - name: Copy OVPN
-      copy:
-        src: "./secrets/{{ inventory_hostname }}.ovpn"
-        dest: "./factory-usb/{{ inventory_hostname }}/{{ inventory_hostname }}.ovpn"
-
-    - name: Copy installer script
-      template:
-        src: "templates/install.sh.j2"
-        dest: "./factory-usb/{{ inventory_hostname }}/install.sh"
-        mode: '0755'
+- name: Prepare factory USB payload from GCP secret
+  hosts: localhost
+  gather_facts: false
+  vars:
+    name: "{{ name }}"
+  roles:
+    - factory_usb

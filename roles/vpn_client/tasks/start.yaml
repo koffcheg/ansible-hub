@@ -1,5 +1,0 @@
-- name: Enable and start OpenVPN client service
-  systemd:
-    name: "openvpn-client@{{ inventory_hostname }}"
-    enabled: yes
-    state: started

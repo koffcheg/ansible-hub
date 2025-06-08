@@ -1,18 +1,30 @@
-# roles/factory_usb/tasks/main.yaml
-- name: Create directory for USB payload
+- name: Fetch .ovpn config from GCP Secret Manager
+  google.cloud.gcp_secretmanager_secret_version_info:
+    project: "{{ gcp_project }}"
+    secret: "vpn-client-{{ name }}"
+    version: "latest"
+  register: ovpn_secret
+
+- name: Write .ovpn config to /tmp
+  copy:
+    content: "{{ ovpn_secret.payload.data | b64decode }}"
+    dest: "/tmp/{{ name }}.ovpn"
+    mode: '0644'
+
+- name: Create USB install directory
   file:
-    path: "factory-usb/{{ inventory_hostname }}"
+    path: "/tmp/usb_{{ name }}"
     state: directory
     mode: '0755'
 
-- name: Copy .ovpn bundle to USB folder
+- name: Copy .ovpn to USB dir
   copy:
-    src: "secrets/{{ inventory_hostname }}.ovpn"
-    dest: "factory-usb/{{ inventory_hostname }}/{{ inventory_hostname }}.ovpn"
-    mode: '0600'
+    src: "/tmp/{{ name }}.ovpn"
+    dest: "/tmp/usb_{{ name }}/{{ name }}.ovpn"
+    remote_src: yes
 
 - name: Generate install.sh from template
   template:
     src: install.sh.j2
-    dest: "factory-usb/{{ inventory_hostname }}/install.sh"
+    dest: "/tmp/usb_{{ name }}/install.sh"
     mode: '0755'

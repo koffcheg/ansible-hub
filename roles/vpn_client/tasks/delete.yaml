@@ -1,6 +1,5 @@
----
-- name: Delete VPN secret
+- name: Ensure client secret is deleted
   google.cloud.gcp_secretmanager_secret:
-    name: "{{ gcp_secrets_prefix }}{{ inventory_hostname }}"
-    project: "{{ gcp_project_id }}"
+    name: "vpn-client-{{ name }}"
+    project: "{{ gcp_project }}"
     state: absent

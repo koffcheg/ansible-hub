@@ -1,6 +1,30 @@
-*.b64
-secrets/
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+env/
+venv/
+
+# Ansible runtime
+*.retry
 *.log
+*.tmp
+inventory.yaml
+
+# Secrets / Keys
+client-configs/
+*.ovpn
+*.key
+*.crt
+secrets/
+.gcloud/
+*.tar.gz
+*.zip
+
+# Docker
+*.db
+*.pid
+*.sock
 .env
+docker-compose.override.yaml

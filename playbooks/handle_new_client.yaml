@@ -1,25 +1,19 @@
-- name: Create and provision new VPN client
-  hosts: all
-  gather_facts: no
+- name: Create VPN cert and upload to GCP (on hub)
+  hosts: localhost
+  gather_facts: false
   vars:
-    vpn_client_name: "{{ inventory_hostname }}"
-  tasks:
-    - name: Generate VPN certificate
-      import_role:
-        name: vpn_cert
+    name: "{{ name }}"
+  roles:
+    - role: vpn_cert
       tasks_from: create
-
-    - name: Upload VPN client config to GCP Secret Manager
-      import_role:
-        name: gcp_secret_sync
+    - role: vpn_client
       tasks_from: upload
 
-    - name: Pull client config from GCP
-      import_role:
-        name: vpn_client
+- name: Install VPN on client
+  hosts: "{{ name }}"
+  become: true
+  vars:
+    name: "{{ name }}"
+  roles:
+    - role: vpn_client
       tasks_from: install
-
-    - name: Start VPN client
-      import_role:
-        name: vpn_client
-      tasks_from: start

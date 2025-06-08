@@ -1,19 +1,18 @@
----
-- name: Fetch VPN client secret from GCP Secret Manager
-  google.cloud.gcp_secretmanager_secret_info:
-    project: "{{ gcp_project_id }}"
-    name: "{{ gcp_secrets_prefix }}{{ inventory_hostname }}"
-  register: vpn_secret_meta
+- name: Fetch client config from Secret Manager
+  google.cloud.gcp_secretmanager_secret_version_info:
+    project: "{{ gcp_project }}"
+    secret: "vpn-client-{{ name }}"
+    version: "latest"
+  register: ovpn_secret
 
-- name: Access latest version of secret
-  google.cloud.gcp_secretmanager_secret_version_access:
-    project: "{{ gcp_project_id }}"
-    secret: "{{ gcp_secrets_prefix }}{{ inventory_hostname }}"
-    version: latest
-  register: vpn_secret_access
-
-- name: Decode and write VPN config
+- name: Write OpenVPN config
   copy:
-    content: "{{ vpn_secret_access.data | b64decode }}"
-    dest: "/etc/openvpn/{{ inventory_hostname }}.conf"
-    mode: "0600"
+    content: "{{ ovpn_secret.payload.data | b64decode }}"
+    dest: "/etc/openvpn/{{ name }}.conf"
+    mode: '0600'
+
+- name: Enable and start OpenVPN client service
+  systemd:
+    name: "openvpn@{{ name }}"
+    enabled: yes
+    state: started

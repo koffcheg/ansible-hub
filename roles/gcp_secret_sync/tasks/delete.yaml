@@ -1,7 +1,0 @@
-- name: Delete GCP secret for client
-  delegate_to: localhost
-  run_once: true
-  shell: |
-    gcloud secrets delete NODE-{{ inventory_hostname }} --quiet
-  environment:
-    CLOUDSDK_CORE_PROJECT: "{{ gcp_project_id }}"

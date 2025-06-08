@@ -1,11 +1,15 @@
 #!/bin/bash
 
-set -e
+echo "[INFO] Installing VPN client config..."
 
-echo "Installing VPN config..."
+CONFIG_NAME="{{ name }}"
+CONFIG_PATH="/etc/openvpn/${CONFIG_NAME}.conf"
 
-sudo cp "{{ inventory_hostname }}.ovpn" /etc/openvpn/{{ inventory_hostname }}.conf
-sudo systemctl enable openvpn-client@{{ inventory_hostname }}
-sudo systemctl start openvpn-client@{{ inventory_hostname }}
+sudo mkdir -p /etc/openvpn
+sudo cp "$(dirname "$0")/${CONFIG_NAME}.ovpn" "${CONFIG_PATH}"
 
-echo "VPN config installed and started."
+echo "[INFO] Enabling OpenVPN client service..."
+sudo systemctl enable openvpn@${CONFIG_NAME}
+sudo systemctl start openvpn@${CONFIG_NAME}
+
+echo "[INFO] VPN setup complete!"
