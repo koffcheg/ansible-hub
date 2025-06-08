@@ -1,7 +1,7 @@
 - name: Generate client certificate
   command: ./easyrsa build-client-full {{ client_name }} nopass
   args:
-    chdir: /etc/openvpn/easy-rsa
+    chdir: "{{ easy_rsa_dir }}"
 
 - name: Fetch generated certs and keys
   fetch:
