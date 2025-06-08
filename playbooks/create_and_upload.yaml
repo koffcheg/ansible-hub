@@ -1,7 +1,8 @@
-- name: Upload existing cert to GCP Secret Manager
+- name: Create cert and upload to GCP
   hosts: localhost
   gather_facts: false
   vars:
     client_name: "{{ client_name }}"
   roles:
+    - vpn_cert/create
     - vpn_cert/upload

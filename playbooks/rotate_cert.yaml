@@ -1,19 +1,8 @@
-- name: Rotate cert and upload to GCP (on hub)
+- name: Rotate VPN client cert and upload to GCP
   hosts: localhost
   gather_facts: false
   vars:
-    name: "{{ inventory_hostname }}"
+    client_name: "{{ client_name }}"
   roles:
-    - role: vpn_cert
-      tasks_from: rotate
-    - role: vpn_client
-      tasks_from: upload
-
-- name: Reinstall new config on client
-  hosts: "{{ inventory_hostname }}"
-  become: true
-  vars:
-    name: "{{ inventory_hostname }}"
-  roles:
-    - role: vpn_client
-      tasks_from: install
+    - vpn_cert/rotate
+    - vpn_cert/upload

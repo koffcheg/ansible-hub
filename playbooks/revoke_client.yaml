@@ -1,10 +1,8 @@
-- name: Revoke cert and delete secret (on hub only)
+- name: Revoke client and cleanup
   hosts: localhost
   gather_facts: false
   vars:
-    name: "{{ client_name }}"
+    client_name: "{{ client_name }}"
   roles:
-    - role: vpn_cert
-      tasks_from: revoke
-    - role: vpn_client
-      tasks_from: delete
+    - vpn_cert/revoke
+    - vpn_client/delete

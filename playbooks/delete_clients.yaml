@@ -1,8 +1,7 @@
-- name: Delete client secret from GCP (on hub)
+- name: Delete cert from local storage and GCP
   hosts: localhost
   gather_facts: false
   vars:
-    name: "{{ client_name }}"
+    client_name: "{{ client_name }}"
   roles:
-    - role: vpn_client
-      tasks_from: delete
+    - vpn_client/delete

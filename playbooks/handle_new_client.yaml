@@ -1,19 +1,15 @@
-- name: Create VPN cert and upload to GCP (on hub)
+- name: Create, upload, and install VPN
   hosts: localhost
   gather_facts: false
   vars:
-    name: "{{ client_name }}"
+    client_name: "{{ client_name }}"
   roles:
-    - role: vpn_cert
-      tasks_from: create
-    - role: vpn_client
-      tasks_from: upload
+    - vpn_cert/create
+    - vpn_cert/upload
 
 - name: Install VPN on client
   hosts: "{{ client_name }}"
-  become: true
-  vars:
-    name: "{{ client_name }}"
+  become: yes
+  gather_facts: yes
   roles:
-    - role: vpn_client
-      tasks_from: install
+    - vpn_client/install

@@ -1,6 +1,6 @@
 - name: Read .ovpn file from disk
   slurp:
-    src: "client-configs/{{ client_name }}/{{ client_name }}.ovpn"
+    src: "{{ openvpn_config_dir }}/client-configs/{{ client_name }}.ovpn"
   register: ovpn_data
 
 - name: Create Secret for the client

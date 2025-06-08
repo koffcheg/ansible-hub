@@ -1,7 +1,7 @@
-- name: Prepare factory USB payload from GCP secret
+- name: Prepare USB client configs for factory
   hosts: localhost
   gather_facts: false
   vars:
-    name: "{{ client_name }}"
+    client_name: "{{ client_name }}"
   roles:
     - factory_usb
