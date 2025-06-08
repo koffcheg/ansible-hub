@@ -1,6 +1,6 @@
 # roles/vpn_cert/tasks/revoke.yaml
 - name: Revoke client certificate
-  command: "easyrsa revoke {{ inventory_hostname }}"
+  command: "easyrsa revoke {{ client_name }}"
   args:
     chdir: "{{ easy_rsa_dir }}"
   delegate_to: vpn

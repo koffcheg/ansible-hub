@@ -1,17 +1,17 @@
 # roles/vpn_cert/tasks/create.yaml
 - name: Build client certificate
-  command: "EASYRSA_CERT_EXPIRE=3650 easyrsa build-client-full {{ inventory_hostname }} nopass"
+  command: "EASYRSA_CERT_EXPIRE=3650 easyrsa build-client-full {{ client_name }} nopass"
   args:
     chdir: "{{ easy_rsa_dir }}"
   delegate_to: vpn
 
 - name: Read .ovpn file from server
   slurp:
-    src: "{{ openvpn_config_dir }}/client-configs/{{ inventory_hostname }}.ovpn"
+    src: "{{ openvpn_config_dir }}/client-configs/{{ client_name }}.ovpn"
   register: raw
   delegate_to: vpn
 
 - name: Save .ovpn locally
   copy:
     content: "{{ raw.content | b64decode }}"
-    dest: "./secrets/{{ inventory_hostname }}.ovpn"
+    dest: "./secrets/{{ client_name }}.ovpn"

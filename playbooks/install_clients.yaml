@@ -1,8 +1,8 @@
 - name: Install OpenVPN config from Secret Manager
-  hosts: "{{ client_name }}"
+  hosts: "{{ inventory_hostname }}"
   become: true
   vars:
-    name: "{{ client_name }}"
+    name: "{{ inventory_hostname }}"
   roles:
     - role: vpn_client
       tasks_from: install

@@ -2,7 +2,7 @@
   hosts: localhost
   gather_facts: false
   vars:
-    name: "{{ client_name }}"
+    name: "{{ inventory_hostname }}"
   roles:
     - role: vpn_cert
       tasks_from: rotate
@@ -10,10 +10,10 @@
       tasks_from: upload
 
 - name: Reinstall new config on client
-  hosts: "{{ client_name }}"
+  hosts: "{{ inventory_hostname }}"
   become: true
   vars:
-    name: "{{ client_name }}"
+    name: "{{ inventory_hostname }}"
   roles:
     - role: vpn_client
       tasks_from: install
