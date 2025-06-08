@@ -3,7 +3,7 @@
   gather_facts: false
   vars:
     client_name: "{{ client_name }}"
-    action: download
+    vpn_action: download
   roles:
     - role: vpn_client
     - role: factory_usb

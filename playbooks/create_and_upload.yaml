@@ -3,7 +3,7 @@
   gather_facts: false
   vars:
     client_name: "{{ client_name }}"
-    action: create
+    vpn_action: create
   roles:
     - role: vpn_cert
     - role: vpn_client
