@@ -1,12 +1,9 @@
-# roles/vpn_cert/tasks/revoke.yaml
 - name: Revoke client certificate
-  command: "easyrsa revoke {{ client_name }}"
+  command: ./easyrsa revoke {{ client_name }}
   args:
-    chdir: "{{ easy_rsa_dir }}"
-  delegate_to: vpn
+    chdir: /etc/openvpn/easy-rsa
 
-- name: Update CRL
-  command: "easyrsa gen-crl"
+- name: Regenerate CRL
+  command: ./easyrsa gen-crl
   args:
-    chdir: "{{ easy_rsa_dir }}"
-  delegate_to: vpn
+    chdir: /etc/openvpn/easy-rsa

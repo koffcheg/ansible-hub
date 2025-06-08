@@ -1,4 +1,4 @@
-- name: Prepare USB client configs for factory
+- name: Prepare USB delivery with VPN config
   hosts: localhost
   gather_facts: false
   vars:

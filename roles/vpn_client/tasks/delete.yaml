@@ -1,5 +1,10 @@
-- name: Ensure client secret is deleted
-  google.cloud.gcp_secretmanager_secret:
-    name: "vpn-client-{{ client_name }}"
-    project: "{{ gcp_project }}"
+- name: Remove client config folder
+  file:
+    path: "client-configs/{{ client_name }}"
     state: absent
+
+- name: Delete secret from GCP
+  gcp_secret_manager_secret:
+    name: "openvpn_{{ client_name }}"
+    state: absent
+  delegate_to: localhost

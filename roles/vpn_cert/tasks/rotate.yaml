@@ -1,29 +1,9 @@
-# roles/vpn_cert/tasks/rotate.yaml
-- name: Revoke old certificate
-  command: "easyrsa revoke {{ inventory_hostname }}"
-  args:
-    chdir: "{{ easy_rsa_dir }}"
-  delegate_to: vpn
+- name: Rotate cert (revoke + create)
+  include_tasks: revoke.yaml
 
-- name: Generate updated CRL
-  command: "easyrsa gen-crl"
-  args:
-    chdir: "{{ easy_rsa_dir }}"
-  delegate_to: vpn
+- name: Wait after revoke
+  pause:
+    seconds: 2
 
-- name: Generate new client certificate (same name)
-  command: "EASYRSA_CERT_EXPIRE=3650 easyrsa build-client-full {{ inventory_hostname }} nopass"
-  args:
-    chdir: "{{ easy_rsa_dir }}"
-  delegate_to: vpn
-
-- name: Fetch updated .ovpn from server
-  slurp:
-    src: "{{ openvpn_config_dir }}/client-configs/{{ inventory_hostname }}.ovpn"
-  register: raw
-  delegate_to: vpn
-
-- name: Replace .ovpn locally
-  copy:
-    content: "{{ raw.content | b64decode }}"
-    dest: "./secrets/{{ inventory_hostname }}.ovpn"
+- name: Create new cert
+  include_tasks: create.yaml

@@ -1,30 +1,16 @@
-- name: Fetch .ovpn config from GCP Secret Manager
-  google.cloud.gcp_secretmanager_secret_version_info:
-    project: "{{ gcp_project }}"
-    secret: "vpn-client-{{ client_name }}"
-    version: "latest"
-  register: ovpn_secret
-
-- name: Write .ovpn config to /tmp
-  copy:
-    content: "{{ ovpn_secret.payload.data | b64decode }}"
-    dest: "/tmp/{{ client_name }}.ovpn"
-    mode: '0644'
-
-- name: Create USB install directory
+- name: Ensure USB payload directory exists
   file:
-    path: "/tmp/usb_{{ client_name }}"
+    path: "/usb-payloads/{{ client_name }}"
     state: directory
     mode: '0755'
 
-- name: Copy .ovpn to USB dir
+- name: Copy client files to USB payload folder
   copy:
-    src: "/tmp/{{ client_name }}.ovpn"
-    dest: "/tmp/usb_{{ client_name }}/{{ client_name }}.ovpn"
-    remote_src: yes
-
-- name: Generate install.sh from template
-  template:
-    src: install.sh.j2
-    dest: "/tmp/usb_{{ client_name }}/install.sh"
-    mode: '0755'
+    src: "client-configs/{{ client_name }}/{{ item }}"
+    dest: "/usb-payloads/{{ client_name }}/{{ item }}"
+  loop:
+    - ca.crt
+    - client.crt
+    - client.key
+    - ta.key
+    - "{{ client_name }}.ovpn"

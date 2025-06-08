@@ -1,17 +1,20 @@
-# roles/vpn_cert/tasks/create.yaml
-- name: Build client certificate
-  command: "EASYRSA_CERT_EXPIRE=3650 easyrsa build-client-full {{ client_name }} nopass"
+- name: Generate client certificate
+  command: ./easyrsa build-client-full {{ client_name }} nopass
   args:
-    chdir: "{{ easy_rsa_dir }}"
-  delegate_to: vpn-server
+    chdir: /etc/openvpn/easy-rsa
 
-- name: Read .ovpn file from server
-  slurp:
-    src: "{{ openvpn_config_dir }}/client-configs/{{ client_name }}.ovpn"
-  register: raw
-  delegate_to: vpn-server
+- name: Fetch generated certs and keys
+  fetch:
+    src: "/etc/openvpn/easy-rsa/pki/{{ item }}"
+    dest: "client-configs/{{ client_name }}/{{ item }}"
+    flat: yes
+  loop:
+    - issued/{{ client_name }}.crt
+    - private/{{ client_name }}.key
+    - ca.crt
+    - ta.key
 
-- name: Save .ovpn locally
-  copy:
-    content: "{{ raw.content | b64decode }}"
-    dest: "./secrets/{{ client_name }}.ovpn"
+- name: Create OVPN config
+  template:
+    src: templates/client.ovpn.j2
+    dest: "client-configs/{{ client_name }}/{{ client_name }}.ovpn"

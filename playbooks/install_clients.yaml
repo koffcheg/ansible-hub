@@ -1,6 +1,0 @@
-- name: Install VPN client on all hosts
-  hosts: clients
-  become: yes
-  gather_facts: yes
-  roles:
-    - vpn_client/install

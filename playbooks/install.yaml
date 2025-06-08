@@ -1,0 +1,5 @@
+- name: Install VPN client config
+  hosts: "{{ client_name }}"
+  gather_facts: false
+  roles:
+    - vpn_client/install

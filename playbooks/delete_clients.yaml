@@ -1,7 +1,0 @@
-- name: Delete cert from local storage and GCP
-  hosts: localhost
-  gather_facts: false
-  vars:
-    client_name: "{{ client_name }}"
-  roles:
-    - vpn_client/delete

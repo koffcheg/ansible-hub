@@ -1,8 +1,8 @@
-- name: Rotate VPN client cert and upload to GCP
-  hosts: localhost
+- name: Rotate and upload VPN client
+  hosts: vpn-server
   gather_facts: false
   vars:
     client_name: "{{ client_name }}"
   roles:
     - vpn_cert/rotate
-    - vpn_cert/upload
+    - vpn_client/upload
