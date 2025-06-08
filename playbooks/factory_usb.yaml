@@ -2,6 +2,6 @@
   hosts: localhost
   gather_facts: false
   vars:
-    name: "{{ name }}"
+    name: "{{ client_name }}"
   roles:
     - factory_usb

@@ -2,7 +2,7 @@
   hosts: localhost
   gather_facts: false
   vars:
-    name: "{{ name }}"
+    name: "{{ client_name }}"
   roles:
     - role: vpn_cert
       tasks_from: create
@@ -10,10 +10,10 @@
       tasks_from: upload
 
 - name: Install VPN on client
-  hosts: "{{ name }}"
+  hosts: "{{ client_name }}"
   become: true
   vars:
-    name: "{{ name }}"
+    name: "{{ client_name }}"
   roles:
     - role: vpn_client
       tasks_from: install

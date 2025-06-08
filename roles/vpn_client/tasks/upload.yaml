@@ -1,11 +1,11 @@
 - name: Read .ovpn file from disk
   slurp:
-    src: "client-configs/{{ name }}/{{ name }}.ovpn"
+    src: "client-configs/{{ client_name }}/{{ client_name }}.ovpn"
   register: ovpn_data
 
 - name: Create Secret for the client
   google.cloud.gcp_secretmanager_secret:
-    name: "vpn-client-{{ name }}"
+    name: "vpn-client-{{ client_name }}"
     project: "{{ gcp_project }}"
     replication:
       automatic: {}
@@ -13,6 +13,6 @@
 
 - name: Upload secret version with .ovpn data
   google.cloud.gcp_secretmanager_secret_version:
-    secret: "vpn-client-{{ name }}"
+    secret: "vpn-client-{{ client_name }}"
     project: "{{ gcp_project }}"
     payload: "{{ ovpn_data.content | b64decode }}"

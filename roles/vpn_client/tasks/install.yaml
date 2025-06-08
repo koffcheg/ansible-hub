@@ -1,18 +1,18 @@
 - name: Fetch client config from Secret Manager
   google.cloud.gcp_secretmanager_secret_version_info:
     project: "{{ gcp_project }}"
-    secret: "vpn-client-{{ name }}"
+    secret: "vpn-client-{{ client_name }}"
     version: "latest"
   register: ovpn_secret
 
 - name: Write OpenVPN config
   copy:
     content: "{{ ovpn_secret.payload.data | b64decode }}"
-    dest: "/etc/openvpn/{{ name }}.conf"
+    dest: "/etc/openvpn/{{ client_name }}.conf"
     mode: '0600'
 
 - name: Enable and start OpenVPN client service
   systemd:
-    name: "openvpn@{{ name }}"
+    name: "openvpn@{{ client_name }}"
     enabled: yes
     state: started
