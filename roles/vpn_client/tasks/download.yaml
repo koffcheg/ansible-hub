@@ -1,0 +1,49 @@
+- name: Download VPN bundle from Secret Manager
+  gcp_secret_manager_secret_info:
+    name: "openvpn_{{ client_name }}"
+    project: "{{ gcp_project_id }}"
+  register: vpn_bundle
+
+- name: Write archive to temp file
+  become: true
+  copy:
+    dest: "/tmp/{{ client_name }}.tar.gz"
+    content: "{{ vpn_bundle.payload.data | b64decode }}"
+    mode: '0600'
+
+- name: Extract archive to OpenVPN client directory
+  become: true
+  unarchive:
+    src: "/tmp/{{ client_name }}.tar.gz"
+    dest: "/etc/openvpn/{{ client_name }}"
+    remote_src: true
+
+- name: Backup old OVPN config (if exists)
+  become: true
+  shell: |
+    if [ -f "/etc/openvpn/{{ client_name }}.conf" ]; then
+      cp "/etc/openvpn/{{ client_name }}.conf" "/etc/openvpn/{{ client_name }}.old.ovpn"
+    fi
+  args:
+    executable: /bin/bash
+
+- name: Copy new config to systemd-accessible location
+  become: true
+  copy:
+    src: "/etc/openvpn/{{ client_name }}/{{ client_name }}.ovpn"
+    dest: "/etc/openvpn/{{ client_name }}.conf"
+    mode: '0600'
+
+- name: Install DNS hook script
+  become: true
+  copy:
+    src: dns-hooks.sh
+    dest: /etc/openvpn/dns-hooks.sh
+    mode: '0755'
+
+- name: Enable and start OpenVPN client service
+  become: true
+  systemd:
+    name: "openvpn-client@{{ client_name }}"
+    enabled: true
+    state: restarted

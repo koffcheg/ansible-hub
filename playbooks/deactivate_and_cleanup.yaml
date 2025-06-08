@@ -1,10 +1,10 @@
-- name: Create and upload VPN client
+- name: Deactivate and clean up VPN client
   hosts: vpn-server
   gather_facts: false
   vars:
     client_name: "{{ client_name }}"
-    action: create
+    action: revoke
   roles:
     - role: vpn_cert
     - role: vpn_client
-      tasks_from: upload
+      tasks_from: delete

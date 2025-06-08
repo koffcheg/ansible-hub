@@ -1,0 +1,9 @@
+- name: Pull config from Secret Manager to factory
+  hosts: localhost
+  gather_facts: false
+  vars:
+    client_name: "{{ client_name }}"
+    action: download
+  roles:
+    - role: vpn_client
+    - role: factory_usb

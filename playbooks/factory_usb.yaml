@@ -1,7 +1,0 @@
-- name: Prepare USB delivery with VPN config
-  hosts: localhost
-  gather_facts: false
-  vars:
-    client_name: "{{ client_name }}"
-  roles:
-    - factory_usb

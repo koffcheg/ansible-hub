@@ -3,6 +3,8 @@
   gather_facts: false
   vars:
     client_name: "{{ client_name }}"
+    action: rotate
   roles:
-    - vpn_cert/rotate
-    - vpn_client/upload
+    - role: vpn_cert
+    - role: vpn_client
+      tasks_from: upload

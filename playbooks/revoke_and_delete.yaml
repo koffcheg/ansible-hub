@@ -1,8 +1,0 @@
-- name: Revoke and delete VPN client
-  hosts: vpn-server
-  gather_facts: false
-  vars:
-    client_name: "{{ client_name }}"
-  roles:
-    - vpn_cert/revoke
-    - vpn_client/delete

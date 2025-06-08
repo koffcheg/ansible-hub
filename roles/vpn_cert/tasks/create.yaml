@@ -16,5 +16,16 @@
 
 - name: Create OVPN config
   template:
-    src: templates/client.ovpn.j2
+    src: templates/base_client.conf.j2
     dest: "client-configs/{{ client_name }}/{{ client_name }}.ovpn"
+
+- name: Create client bundle archive
+  archive:
+    path:
+      - "client-configs/{{ client_name }}/ca.crt"
+      - "client-configs/{{ client_name }}/client.crt"
+      - "client-configs/{{ client_name }}/client.key"
+      - "client-configs/{{ client_name }}/ta.key"
+      - "client-configs/{{ client_name }}/{{ client_name }}.ovpn"
+    dest: "client-configs/{{ client_name }}/{{ client_name }}.tar.gz"
+    format: gz

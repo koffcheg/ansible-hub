@@ -1,4 +1,4 @@
-- name: Remove client config folder
+- name: Remove local client config (if exists)
   file:
     path: "client-configs/{{ client_name }}"
     state: absent
