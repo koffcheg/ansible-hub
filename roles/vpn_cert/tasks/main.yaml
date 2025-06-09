@@ -5,4 +5,4 @@
       easy_rsa_dir = {{ easy_rsa_dir | default('UNDEFINED') }}
 
 - name: Include actual action
-  import_tasks: "{{ vpn_action }}.yaml"
+  include_tasks: "{{ vpn_action }}.yaml"

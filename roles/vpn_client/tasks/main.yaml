@@ -1,2 +1,2 @@
 - name: Dispatch vpn_client task
-  import_tasks: "{{ vpn_action }}.yaml"
+  include_tasks: "{{ vpn_action }}.yaml"

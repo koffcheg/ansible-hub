@@ -1,9 +1,9 @@
 - name: Rotate cert (revoke + create)
-  import_tasks: revoke.yaml
+  include_tasks: revoke.yaml
 
 - name: Wait after revoke
   pause:
     seconds: 2
 
 - name: Create new cert
-  import_tasks: create.yaml
+  include_tasks: create.yaml
