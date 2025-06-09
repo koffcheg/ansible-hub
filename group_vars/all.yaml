@@ -1,3 +1,4 @@
+---
 ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
 
 gcp_project_id: twitter-backup-371709
