@@ -1,6 +1,6 @@
 - name: Pull config from Secret Manager to factory
   hosts: localhost
-  gather_facts: false
+  gather_facts: true
   vars:
     client_name: "{{ client_name }}"
     vpn_action: download

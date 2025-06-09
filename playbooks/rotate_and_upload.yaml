@@ -1,6 +1,6 @@
 - name: Rotate and upload VPN client
   hosts: vpn_node
-  gather_facts: false
+  gather_facts: true
   vars:
     client_name: "{{ client_name }}"
     vpn_action: rotate
