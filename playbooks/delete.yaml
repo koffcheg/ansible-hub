@@ -1,6 +1,6 @@
 - name: Delete VPN Client Certificate and Secret
   hosts: localhost
-  gather_facts: no
+  gather_facts: false
   vars:
     client_name: "{{ client_name }}"
   roles:
