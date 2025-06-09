@@ -1,2 +1,6 @@
-- name: Dispatch vpn_cert task
+- name: Force variable resolution
+  debug:
+    var: easy_rsa_dir
+
+- name: Include actual action
   include_tasks: "{{ vpn_action }}.yaml"

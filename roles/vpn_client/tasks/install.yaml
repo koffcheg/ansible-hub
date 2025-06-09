@@ -1,11 +1,11 @@
 - name: Ensure OpenVPN installed
-  become: yes
+  become: true
   apt:
     name: openvpn
     state: present
 
 - name: Upload client config
-  become: yes
+  become: true
   copy:
     src: "client-configs/{{ client_name }}/{{ client_name }}.ovpn"
     dest: "/etc/openvpn/{{ client_name }}.ovpn"
