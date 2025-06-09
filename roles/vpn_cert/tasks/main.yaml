@@ -1,6 +1,8 @@
-- name: Force variable resolution
+- name: DEBUG full context
   debug:
-    var: easy_rsa_dir
+    msg: |
+      Host: {{ inventory_hostname }}
+      easy_rsa_dir = {{ easy_rsa_dir | default("UNDEFINED") }}
 
 - name: Include actual action
   include_tasks: "{{ vpn_action }}.yaml"

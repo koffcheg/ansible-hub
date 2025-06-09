@@ -1,6 +1,7 @@
-- name: Upload client bundle to GCP Secret Manager
-  gcp_secret_manager_secret:
-    name: "openvpn_{{ client_name }}"
-    data: "{{ lookup('file', 'client-configs/' + client_name + '/' + client_name + '.tar.gz') | b64encode }}"
+- name: Upload to GCP Secret Manager
+  gcp_secret:
+    name: "{{ gcp_secrets_prefix }}{{ client_name }}"
+    project: "{{ gcp_project_id }}"
+    secret_data: "{{ lookup('file', 'client-configs/' + client_name + '/' + client_name + '.tar.gz') | b64encode }}"
     state: present
   delegate_to: localhost
