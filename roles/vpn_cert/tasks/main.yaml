@@ -1,2 +1,8 @@
+- name: DEBUG full context
+  debug:
+    msg: |
+      Host: {{ inventory_hostname }}
+      easy_rsa_dir = {{ easy_rsa_dir | default('UNDEFINED') }}
+
 - name: Include actual action
   import_tasks: "{{ vpn_action }}.yaml"
