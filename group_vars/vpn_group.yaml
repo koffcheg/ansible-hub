@@ -4,4 +4,4 @@ openvpn_config_dir: /etc/openvpn
 easy_rsa_dir: /home/kharkov501/easy-rsa
 gcp_project_id: twitter-backup-371709
 gcp_secrets_prefix: vpn-client-
-secret_location: projects/{{ gcp_project_id }}/secrets
+secret_location: projects/twitter-backup-371709/secrets
