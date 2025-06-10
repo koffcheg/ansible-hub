@@ -2,14 +2,9 @@
 - name: Create and upload VPN client
   hosts: vpn_group
   gather_facts: true
-
-  vars_files:
-    - group_vars/vpn_group.yaml
-
   vars:
     client_name: "{{ client_name }}"
     vpn_action: create
-    
   roles:
     - role: vpn_cert
     - role: vpn_client

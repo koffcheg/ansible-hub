@@ -1,3 +1,7 @@
+- name: Load easy_rsa_dir if needed
+  set_fact:
+    easy_rsa_dir: "{{ easy_rsa_dir | default('/home/kharkov501/easy-rsa') }}"
+
 - name: Create VPN client cert
   include_tasks: create.yaml
   when: vpn_action == "create"
