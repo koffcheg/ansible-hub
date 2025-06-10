@@ -1,5 +1,6 @@
+---
 - name: Deactivate and clean up VPN client
-  hosts: vpn_node
+  hosts: vpn_group
   gather_facts: true
   vars:
     client_name: "{{ client_name }}"

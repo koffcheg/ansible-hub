@@ -1,7 +1,11 @@
-- name: Delete VPN Client Certificate and Secret
-  hosts: localhost
-  gather_facts: true
+---
+- name: Delete VPN config from client
+  hosts: vpn_node
+  gather_facts: false
+
   vars:
+    vpn_client_action: delete
     client_name: "{{ client_name }}"
+
   roles:
-    - { role: vpn_client, tasks_from: delete }
+    - vpn_client

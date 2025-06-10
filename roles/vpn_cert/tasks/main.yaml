@@ -1,8 +1,11 @@
-- name: DEBUG full context
-  debug:
-    msg: |
-      Host: {{ inventory_hostname }}
-      easy_rsa_dir = {{ easy_rsa_dir | default('UNDEFINED') }}
+- name: Create VPN client cert
+  include_tasks: create.yaml
+  when: vpn_action == "create"
 
-- name: Include actual action
-  include_tasks: "{{ vpn_action }}.yaml"
+- name: Rotate VPN client cert
+  include_tasks: rotate.yaml
+  when: vpn_action == "rotate"
+
+- name: Revoke VPN client cert
+  include_tasks: revoke.yaml
+  when: vpn_action == "revoke"

@@ -1,16 +1,18 @@
-- name: Ensure USB payload directory exists
+---
+- name: Ensure output directory exists
   file:
-    path: "/usb-payloads/{{ client_name }}"
+    path: "/factory_usb_output"
     state: directory
     mode: '0755'
 
-- name: Copy client files to USB payload folder
+- name: Download client config from GCP Secret Manager
+  command: >
+    gcloud secrets versions access latest
+    --secret="vpn-client-{{ client_name }}"
+  register: vpn_secret_content
+
+- name: Save .ovpn config to disk
   copy:
-    src: "client-configs/{{ client_name }}/{{ item }}"
-    dest: "/usb-payloads/{{ client_name }}/{{ item }}"
-  loop:
-    - ca.crt
-    - client.crt
-    - client.key
-    - ta.key
-    - "{{ client_name }}.ovpn"
+    content: "{{ vpn_secret_content.stdout }}"
+    dest: "/factory_usb_output/{{ client_name }}.ovpn"
+    mode: '0600'

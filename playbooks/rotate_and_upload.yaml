@@ -1,10 +1,11 @@
-- name: Rotate and upload VPN client
-  hosts: vpn_group
-  gather_facts: true
+---
+- name: Rotate VPN cert and upload new config to Secret Manager
+  hosts: localhost
+  gather_facts: false
+
   vars:
-    client_name: "{{ client_name }}"
     vpn_action: rotate
+    client_name: "{{ client_name }}"
+
   roles:
-    - role: vpn_cert
-    - role: vpn_client
-      tasks_from: upload
+    - vpn_cert

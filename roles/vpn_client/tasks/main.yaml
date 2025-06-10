@@ -1,2 +1,11 @@
-- name: Dispatch vpn_client task
-  include_tasks: "{{ vpn_action }}.yaml"
+- name: Install VPN config
+  include_tasks: install.yaml
+  when: vpn_client_action == "install"
+
+- name: Delete VPN config
+  include_tasks: delete.yaml
+  when: vpn_client_action == "delete"
+
+- name: Download VPN config from Secret Manager
+  include_tasks: download.yaml
+  when: vpn_client_action == "download"
