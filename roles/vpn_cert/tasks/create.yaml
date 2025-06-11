@@ -1,3 +1,13 @@
+- name: Check if certificate already exists
+  stat:
+    path: "{{ easy_rsa_dir }}/pki/reqs/{{ client_name }}.req"
+  register: cert_check
+
+- name: Abort if client cert already exists
+  fail:
+    msg: "Certificate for {{ client_name }} already exists. Use revoke or rotate first."
+  when: cert_check.stat.exists
+
 - name: Generate client certificate
   command: ./easyrsa build-client-full {{ client_name }} nopass
   args:

@@ -1,0 +1,4 @@
+- hosts: vpn_node
+  become: true
+  roles:
+    - vpn_static_ip
