@@ -1,7 +1,12 @@
-- name: Upload to GCP Secret Manager
+- name: Read and encode archive
+  delegate_to: localhost
+  slurp:
+    src: "{{ client_config_base_dir }}/{{ client_name }}.tar.gz"
+  register: client_archive
+
+- name: Upload archive to GCP Secret Manager
   gcp_secret:
     name: "{{ gcp_secrets_prefix }}{{ client_name }}"
-    project: "{{ gcp_project_id }}"
-    secret_data: "{{ lookup('file', 'client-configs/' + client_name + '/' + client_name + '.tar.gz') | b64encode }}"
+    data: "{{ client_archive.content }}"
     state: present
-  delegate_to: localhost
+    project: "{{ gcp_project_id }}"

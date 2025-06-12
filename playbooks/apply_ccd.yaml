@@ -1,4 +1,9 @@
-- hosts: vpn_node
+---
+- name: Apply static IP assignments to CCD
+  hosts: vpn_node
   become: true
+  vars:
+    static_map: {}
+
   roles:
     - vpn_static_ip

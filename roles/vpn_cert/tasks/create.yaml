@@ -2,7 +2,6 @@
   stat:
     path: "{{ easy_rsa_dir }}/pki/reqs/{{ client_name }}.req"
   register: cert_check
-  become: false
 
 - name: Abort if client cert already exists
   fail:
@@ -16,27 +15,36 @@
 
 - name: Fetch generated certs and keys
   fetch:
-    src: "/etc/openvpn/easy-rsa/pki/{{ item }}"
-    dest: "client-configs/{{ client_name }}/{{ item }}"
+    src: "{{ easy_rsa_dir }}/pki/{{ item }}"
+    dest: "{{ client_config_base_dir }}/{{ item | basename }}"
     flat: yes
   loop:
-    - issued/{{ client_name }}.crt
-    - private/{{ client_name }}.key
-    - ca.crt
-    - ta.key
+    - "issued/{{ client_name }}.crt"
+    - "private/{{ client_name }}.key"
+    - "ca.crt"
+    - "ta.key"
 
 - name: Create OVPN config
   template:
     src: templates/base_client.conf.j2
-    dest: "client-configs/{{ client_name }}/{{ client_name }}.ovpn"
+    dest: "{{ client_config_base_dir }}/{{ client_name }}.ovpn"
 
 - name: Create client bundle archive
   archive:
     path:
-      - "client-configs/{{ client_name }}/ca.crt"
-      - "client-configs/{{ client_name }}/client.crt"
-      - "client-configs/{{ client_name }}/client.key"
-      - "client-configs/{{ client_name }}/ta.key"
-      - "client-configs/{{ client_name }}/{{ client_name }}.ovpn"
-    dest: "client-configs/{{ client_name }}/{{ client_name }}.tar.gz"
+      - "{{ client_config_base_dir }}/ca.crt"
+      - "{{ client_config_base_dir }}/client.crt"
+      - "{{ client_config_base_dir }}/client.key"
+      - "{{ client_config_base_dir }}/ta.key"
+      - "{{ client_config_base_dir }}/{{ client_name }}.ovpn"
+    dest: "{{ client_config_base_dir }}/{{ client_name }}.tar.gz"
     format: gz
+
+- name: Save metadata locally
+  delegate_to: localhost
+  copy:
+    dest: "{{ client_config_base_dir }}/metadata.yaml"
+    content: |
+      client_name: {{ client_name }}
+      created_at: "{{ lookup('pipe', 'date -Iseconds') }}"
+      static_ip: {{ static_ip | default('') }}

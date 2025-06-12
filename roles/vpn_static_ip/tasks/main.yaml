@@ -1,13 +1,19 @@
 - name: Ensure CCD directory exists
   file:
-    path: /etc/openvpn/ccd
+    path: "{{ openvpn_config_dir }}/ccd"
     state: directory
     mode: '0755'
-  become: true
 
-- name: Assign static IP to client via CCD
+- name: Write static IP mappings for each client
   copy:
-    dest: "/etc/openvpn/ccd/{{ client_name }}"
-    content: "ifconfig-push {{ assigned_ip }} 255.255.255.0\n"
+    dest: "{{ openvpn_config_dir }}/ccd/{{ item.key }}"
+    content: "ifconfig-push {{ item.value }} 255.255.255.0\n"
     mode: '0644'
-  become: true
+  loop: "{{ static_map | dict2items }}"
+
+- name: Reload OpenVPN
+  systemd:
+    name: openvpn-server@server
+    state: reloaded
+  notify: Restart OpenVPN
+  when: reload_openvpn | default(true)
