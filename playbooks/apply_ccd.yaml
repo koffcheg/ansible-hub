@@ -1,9 +1,17 @@
----
-- name: Apply static IP assignments to CCD
+- name: Apply CCD static IP mappings (optional bulk)
   hosts: vpn_node
-  become: true
-  vars:
-    static_map: {}
+  gather_facts: false
 
-  roles:
-    - vpn_static_ip
+  tasks:
+    - name: Fail if no static_map defined
+      fail:
+        msg: "No static_map passed. Either define it or skip this playbook."
+      when: static_map is not defined
+
+    - name: Apply static IP mapping for each client
+      include_role:
+        name: vpn_static_ip
+      vars:
+        client_name: "{{ item.key }}"
+        static_ip: "{{ item.value }}"
+      loop: "{{ static_map | dict2items }}"

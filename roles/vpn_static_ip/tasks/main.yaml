@@ -1,19 +1,22 @@
+- name: Ensure client_name and static_ip are defined
+  fail:
+    msg: "client_name or static_ip not defined."
+  when: client_name is not defined or static_ip is not defined
+
 - name: Ensure CCD directory exists
   file:
     path: "{{ openvpn_config_dir }}/ccd"
     state: directory
-    mode: '0755'
+    mode: 0755
 
-- name: Write static IP mappings for each client
+- name: Write static IP mapping
   copy:
-    dest: "{{ openvpn_config_dir }}/ccd/{{ item.key }}"
-    content: "ifconfig-push {{ item.value }} 255.255.255.0\n"
+    dest: "{{ openvpn_config_dir }}/ccd/{{ client_name }}"
+    content: "ifconfig-push {{ static_ip }} 255.255.255.0\n"
     mode: '0644'
-  loop: "{{ static_map | dict2items }}"
 
-- name: Reload OpenVPN
+- name: Reload OpenVPN (if needed)
   systemd:
     name: openvpn-server@server
     state: reloaded
-  notify: Restart OpenVPN
   when: reload_openvpn | default(true)
