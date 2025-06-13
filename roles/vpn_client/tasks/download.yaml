@@ -1,12 +1,27 @@
-- name: Download VPN bundle from Secret Manager
-  gcp_secret_manager_secret_info:
+---
+- name: Download VPN config from GCP Secret Manager
+  gcp_secret:
     name: "{{ gcp_secrets_prefix }}{{ client_name }}"
     project: "{{ gcp_project_id }}"
-  register: vpn_bundle
+  delegate_to: localhost
+  register: client_secret
 
-- name: Write archive to temp file
-  become: true
+- name: Fail if secret content missing
+  fail:
+    msg: "Secret for {{ client_name }} has no content!"
+  when: client_secret.content is not defined
+
+- name: Decode client archive and save to temp path
   copy:
+    content: "{{ client_secret.content | b64decode }}"
     dest: "/tmp/{{ client_name }}.tar.gz"
-    content: "{{ vpn_bundle.payload.data | b64decode }}"
     mode: '0600'
+
+- name: Extract archive to client config folder
+  unarchive:
+    src: "/tmp/{{ client_name }}.tar.gz"
+    dest: "{{ client_config_base_dir }}/{{ client_name }}/"
+    remote_src: yes
+
+- debug:
+    msg: "Pulled and extracted config for {{ client_name }}"

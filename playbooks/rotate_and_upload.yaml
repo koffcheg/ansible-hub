@@ -1,12 +1,33 @@
-- name: Rotate and re-upload VPN cert
-  hosts: vpn_node
-  become: true
+---
+- name: Rotate and upload new cert for one or more clients
+  hosts: vpn_group
+  gather_facts: false
+  vars:
+    client_names: []
 
-  roles:
-    - role: vpn_cert
-      vars:
-        client_task: rotate
+  pre_tasks:
+    - name: Ensure client_names are provided
+      fail:
+        msg: "client_names must be passed using -e"
+      when: client_names is not defined or client_names | length == 0
 
-    - role: vpn_client
-      vars:
-        client_task: upload
+  tasks:
+    - name: Set current client name
+      set_fact:
+        client_name: "{{ item }}"
+      loop: "{{ client_names }}"
+      loop_control:
+        loop_var: item
+
+    - name: Rotate cert
+      include_role:
+        name: vpn_cert
+        tasks_from: rotate
+
+    - name: Upload new archive
+      include_role:
+        name: vpn_client
+        tasks_from: upload
+
+    - debug:
+        msg: "Rotated and reuploaded VPN client {{ client_name }}"

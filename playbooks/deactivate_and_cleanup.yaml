@@ -1,11 +1,19 @@
 ---
-- name: Deactivate and clean up VPN client
+- name: Cleanup local client files/certs/configs
   hosts: vpn_group
-  gather_facts: true
+  gather_facts: false
   vars:
-    client_name: "{{ client_name }}"
-    vpn_action: revoke
-  roles:
-    - role: vpn_cert
-    - role: vpn_client
-      tasks_from: delete
+    client_names: []
+
+  pre_tasks:
+    - name: Ensure client_names are provided
+      fail:
+        msg: "client_names must be passed using -e"
+      when: client_names is not defined or client_names | length == 0
+
+  tasks:
+    - name: Cleanup per client
+      include_tasks: ../roles/vpn_client/tasks/delete.yaml
+      loop: "{{ client_names }}"
+      loop_control:
+        loop_var: client_name

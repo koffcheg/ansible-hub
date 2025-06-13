@@ -1,18 +1,19 @@
 ---
 - name: Create and upload one or multiple VPN clients
-  hosts: vpn_node
-  become: true
-  gather_facts: true
-
+  hosts: vpn_group
+  gather_facts: false
   vars:
-    client_names: "{{ client_names }}"
+    client_names: []
+
+  pre_tasks:
+    - name: Ensure client_names are provided
+      fail:
+        msg: "client_names must be passed using -e"
+      when: client_names is not defined or client_names | length == 0
 
   tasks:
     - name: Create/upload for each client
       include_tasks: tasks/client_flow.yaml
       loop: "{{ client_names }}"
       loop_control:
-        loop_var: single_client_name
-      vars:
-        client_name: "{{ single_client_name }}"
-        easy_rsa_dir: "{{ easy_rsa_dir }}"
+        loop_var: item

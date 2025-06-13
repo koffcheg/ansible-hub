@@ -1,4 +1,15 @@
-- name: Read and encode archive
+---
+- name: Ensure client archive exists
+  stat:
+    path: "{{ client_config_base_dir }}/{{ client_name }}.tar.gz"
+  register: archive_check
+
+- name: Fail if archive missing
+  fail:
+    msg: "Missing client archive for {{ client_name }}"
+  when: not archive_check.stat.exists
+
+- name: Read and encode archive for GCP upload
   delegate_to: localhost
   slurp:
     src: "{{ client_config_base_dir }}/{{ client_name }}.tar.gz"
@@ -10,3 +21,9 @@
     data: "{{ client_archive.content }}"
     state: present
     project: "{{ gcp_project_id }}"
+  register: upload_result
+  retries: 3
+  delay: 5
+
+- debug:
+    msg: "Uploaded archive for {{ client_name }} to GCP"

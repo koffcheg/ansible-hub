@@ -1,10 +1,24 @@
 ---
-- name: Pull .ovpn config from Secret Manager on factory node
-  hosts: factory
+- name: Pull VPN config for Jetson or factory device
+  hosts: localhost
   gather_facts: false
 
-  vars:
-    client_name: "{{ client_name }}"
+  pre_tasks:
+    - name: Ensure client_name is provided
+      fail:
+        msg: "client_name must be passed with -e"
+      when: client_name is not defined or client_name | length == 0
 
-  roles:
-    - factory_usb
+  tasks:
+    - name: Pull config from Secret Manager
+      include_role:
+        name: vpn_client
+        tasks_from: download
+
+    - name: Install VPN config locally
+      include_role:
+        name: vpn_client
+        tasks_from: install
+
+    - debug:
+        msg: "VPN config installed for {{ client_name }}"

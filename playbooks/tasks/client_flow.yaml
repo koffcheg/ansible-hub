@@ -1,49 +1,25 @@
 ---
-- name: Check if certificate already exists
-  stat:
-    path: "{{ easy_rsa_dir }}/pki/reqs/{{ client_name }}.req"
-  register: cert_check
+- name: Set client_name fact for current loop
+  set_fact:
+    client_name: "{{ item }}"
 
-- name: Abort if client cert already exists
-  fail:
-    msg: "Certificate for {{ client_name }} already exists. Use revoke or rotate first."
-  when: cert_check.stat.exists
+- name: Create client certificate
+  block:
+    - include_role:
+        name: vpn_cert
+        tasks_from: create
+  rescue:
+    - debug: msg="Failed to create certificate for {{ client_name }}"
+    - meta: end_host
 
-- name: Generate client certificate
-  command: ./easyrsa build-client-full {{ client_name }} nopass
-  args:
-    chdir: "{{ easy_rsa_dir }}"
+- name: Upload to Secret Manager
+  block:
+    - include_role:
+        name: vpn_client
+        tasks_from: upload
+  rescue:
+    - debug: msg="Failed to upload archive for {{ client_name }}"
+    - meta: end_host
 
-- name: Fetch generated certs and keys
-  fetch:
-    src: "/etc/openvpn/easy-rsa/pki/{{ item }}"
-    dest: "client-configs/{{ client_name }}/{{ item }}"
-    flat: yes
-  loop:
-    - issued/{{ client_name }}.crt
-    - private/{{ client_name }}.key
-    - ca.crt
-    - ta.key
-
-- name: Create OVPN config
-  template:
-    src: templates/base_client.conf.j2
-    dest: "client-configs/{{ client_name }}/{{ client_name }}.ovpn"
-
-- name: Create client bundle archive
-  archive:
-    path:
-      - "client-configs/{{ client_name }}/ca.crt"
-      - "client-configs/{{ client_name }}/client.crt"
-      - "client-configs/{{ client_name }}/client.key"
-      - "client-configs/{{ client_name }}/ta.key"
-      - "client-configs/{{ client_name }}/{{ client_name }}.ovpn"
-    dest: "client-configs/{{ client_name }}/{{ client_name }}.tar.gz"
-    format: gz
-
-- name: Upload to secret
-  include_role:
-    name: vpn_client
-    tasks_from: upload
-  vars:
-    client_config_base_dir: "client-configs/{{ client_name }}"
+- debug:
+    msg: "Completed full client onboarding for {{ client_name }}"
