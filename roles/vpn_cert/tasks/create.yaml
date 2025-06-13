@@ -9,7 +9,7 @@
   when: cert_check.stat.exists
 
 - name: Generate client certificate
-  command: ./easyrsa build-client-full {{ client_name }} nopass
+  command: ./easyrsa --batch build-client-full {{ client_name }} nopass
   args:
     chdir: "{{ easy_rsa_dir }}"
 
