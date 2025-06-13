@@ -3,23 +3,21 @@
   set_fact:
     client_name: "{{ item }}"
 
-- name: Set client config base dir
-  set_fact:
-    client_config_base_dir: "/home/kharkov501/client-configs/{{ client_name }}"
-
 - name: Show expected vars
   debug:
     msg:
       - "Client: {{ client_name }}"
       - "EasyRSA Dir: {{ easy_rsa_dir | default('not defined') }}"
-      - "Client Config Base Dir: {{ client_config_base_dir }}"
+      - "Client Config Base Dir: /home/kharkov501/client-configs/{{ client_name }}"
 
 - name: Create client certificate
   block:
-    - name: Run vpn_cert::create without local var override
+    - name: Run vpn_cert::create with var injection
       include_role:
         name: vpn_cert
         tasks_from: create
+      vars:
+        client_config_base_dir: "/home/kharkov501/client-configs/{{ client_name }}"
   rescue:
     - debug: msg="Failed to create certificate for {{ client_name }}"
     - meta: end_host
