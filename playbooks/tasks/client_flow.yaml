@@ -3,7 +3,7 @@
   set_fact:
     client_name: "{{ item }}"
 
-- name: Set client_config_base_dir for this client
+- name: Set client config base dir
   set_fact:
     client_config_base_dir: "/home/kharkov501/client-configs/{{ client_name }}"
 
@@ -12,7 +12,7 @@
     msg:
       - "Client: {{ client_name }}"
       - "EasyRSA Dir: {{ easy_rsa_dir | default('not defined') }}"
-      - "Config Base Dir: {{ client_config_base_dir }}"
+      - "Client Config Base Dir: {{ client_config_base_dir }}"
 
 - name: Create client certificate
   block:
