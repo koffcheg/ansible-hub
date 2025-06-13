@@ -1,3 +1,4 @@
+---
 - name: Check if certificate already exists
   stat:
     path: "{{ easy_rsa_dir }}/pki/reqs/{{ client_name }}.req"
@@ -15,14 +16,16 @@
 
 - name: Fetch generated certs and keys
   fetch:
-    src: "{{ easy_rsa_dir }}/pki/{{ item }}"
-    dest: "{{ client_config_base_dir }}/{{ item | basename }}"
+    src: "{{ easy_rsa_dir }}/pki/{{ cert_file }}"
+    dest: "{{ client_config_base_dir }}/{{ cert_file | basename }}"
     flat: yes
   loop:
     - "issued/{{ client_name }}.crt"
     - "private/{{ client_name }}.key"
     - "ca.crt"
     - "ta.key"
+  loop_control:
+    loop_var: cert_file
 
 - name: Create OVPN config
   template:
