@@ -12,12 +12,12 @@
         msg: "client_names must be passed using -e"
       when: client_names is not defined or client_names | length == 0
 
+
   tasks:
     - name: Create/upload for each client
       include_role:
         name: vpn_cert
-      loop: "{{ client_names }}"
-      loop_control:
-        loop_var: client_name
       vars:
-        client_name: "{{ client_name }}"
+        vpn_action: create
+        client_name: "{{ item }}"
+      loop: "{{ client_names }}"
