@@ -15,3 +15,4 @@
         loop_var: single_client_name
       vars:
         client_name: "{{ single_client_name }}"
+        easy_rsa_dir: "{{ easy_rsa_dir }}"
