@@ -3,7 +3,6 @@
   hosts: vpn
   gather_facts: false
   vars:
-    client_names: []
     vpn_action: "create"
 
   pre_tasks:
@@ -12,12 +11,11 @@
         msg: "client_names must be passed using -e"
       when: client_names is not defined or client_names | length == 0
 
-
   tasks:
     - name: Create/upload for each client
       include_role:
         name: vpn_cert
       vars:
-        vpn_action: create
         client_name: "{{ item }}"
+        vpn_action: "create"
       loop: "{{ client_names }}"

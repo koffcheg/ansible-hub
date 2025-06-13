@@ -5,6 +5,8 @@ ansible_ssh_private_key_file: /home/koffcheg/.ssh/kharkov501
 openvpn_config_dir: /etc/openvpn
 easy_rsa_dir: /home/kharkov501/easy-rsa
 
+client_config_base_dir: /etc/openvpn/client-configs
+
 gcp_project_id: twitter-backup-371709
 gcp_secrets_prefix: vpn-client-
 secret_location: "projects/twitter-backup-371709/secrets"
