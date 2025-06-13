@@ -5,11 +5,7 @@
   gather_facts: true
 
   vars:
-    easy_rsa_dir: "{{ easy_rsa_dir | default('/etc/openvpn/easy-rsa') }}"
-    openvpn_config_dir: "{{ openvpn_config_dir | default('/etc/openvpn') }}"
-    gcp_project_id: "{{ gcp_project_id }}"
-    gcp_secrets_prefix: "{{ gcp_secrets_prefix | default('vpn-client-') }}"
-    secret_location: "{{ secret_location }}"
+    client_names: "{{ client_names }}"
 
   tasks:
     - name: Create/upload for each client
