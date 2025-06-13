@@ -12,11 +12,6 @@
       include_tasks: tasks/client_flow.yaml
       loop: "{{ client_names }}"
       loop_control:
-        loop_var: client_name
+        loop_var: single_client_name
       vars:
-        client_name: "{{ client_name }}"
-        easy_rsa_dir: "{{ easy_rsa_dir }}"
-        openvpn_config_dir: "{{ openvpn_config_dir }}"
-        gcp_project_id: "{{ gcp_project_id }}"
-        gcp_secrets_prefix: "{{ gcp_secrets_prefix }}"
-        secret_location: "{{ secret_location }}"
+        client_name: "{{ single_client_name }}"
