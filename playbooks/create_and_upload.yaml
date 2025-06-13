@@ -1,10 +1,10 @@
-# playbooks/create_and_upload.yaml
 ---
 - name: Create and upload one or multiple VPN clients
   hosts: vpn
   gather_facts: false
   vars:
     client_names: []
+    vpn_action: "create"
 
   pre_tasks:
     - name: Ensure client_names are provided
@@ -16,8 +16,8 @@
     - name: Create/upload for each client
       include_role:
         name: vpn_cert
-      vars:
-        client_name: "{{ item }}"
       loop: "{{ client_names }}"
       loop_control:
-        loop_var: item
+        loop_var: client_name
+      vars:
+        client_name: "{{ client_name }}"
