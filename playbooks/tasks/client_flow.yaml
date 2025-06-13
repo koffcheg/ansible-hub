@@ -3,32 +3,28 @@
   set_fact:
     client_name: "{{ item }}"
 
-- name: Verify easy_rsa_dir is visible
+- name: Show expected vars
   debug:
-    var: easy_rsa_dir
+    msg:
+      - "Client: {{ client_name }}"
+      - "EasyRSA Dir: {{ easy_rsa_dir | default('not defined') }}"
 
 - name: Create client certificate
   block:
-    - name: Run vpn_cert::create with scoped vars
+    - name: Run vpn_cert::create without local var override
       include_role:
         name: vpn_cert
         tasks_from: create
-      vars:
-        easy_rsa_dir: "{{ easy_rsa_dir }}"
   rescue:
     - debug: msg="Failed to create certificate for {{ client_name }}"
     - meta: end_host
 
 - name: Upload to GCP Secret Manager
   block:
-    - name: Run vpn_client::upload with scoped vars
+    - name: Run vpn_client::upload
       include_role:
         name: vpn_client
         tasks_from: upload
-      vars:
-        gcp_project_id: "{{ gcp_project_id }}"
-        gcp_secrets_prefix: "{{ gcp_secrets_prefix }}"
-        client_config_base_dir: "{{ client_config_base_dir }}"
   rescue:
     - debug: msg="Failed to upload archive for {{ client_name }}"
     - meta: end_host
