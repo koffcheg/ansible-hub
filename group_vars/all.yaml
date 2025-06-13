@@ -1,7 +1,0 @@
----
-easy_rsa_dir: /home/kharkov501/easy-rsa
-client_config_base_dir: /etc/openvpn/client-configs
-openvpn_config_dir: /etc/openvpn
-
-gcp_project_id: twitter-backup-371709
-gcp_secrets_prefix: vpn-client-

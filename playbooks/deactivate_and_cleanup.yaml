@@ -1,6 +1,6 @@
 ---
 - name: Cleanup local client files/certs/configs
-  hosts: vpn_group
+  hosts: vpn
   gather_facts: false
   vars:
     client_names: []

@@ -1,6 +1,6 @@
 ---
 - name: Delete VPN config from client
-  hosts: vpn_node
+  hosts: vpn
   gather_facts: false
 
   vars:

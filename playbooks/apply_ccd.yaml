@@ -1,5 +1,5 @@
 - name: Apply CCD static IP mappings (optional bulk)
-  hosts: vpn_node
+  hosts: vpn
   gather_facts: false
 
   tasks:

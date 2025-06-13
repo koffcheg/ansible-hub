@@ -1,6 +1,6 @@
 ---
 - name: Rotate and upload new cert for one or more clients
-  hosts: vpn_group
+  hosts: vpn
   gather_facts: false
   vars:
     client_names: []
