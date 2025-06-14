@@ -1,6 +1,6 @@
 ---
 - name: Create and upload one or multiple VPN clients
-  hosts: vpn_node
+  hosts: vpn
   gather_facts: false
 
   tasks:
