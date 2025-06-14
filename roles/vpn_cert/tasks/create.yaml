@@ -27,6 +27,7 @@
     src: "{{ item.src }}"
     dest: "{{ client_config_dir }}/{{ item.dest }}"
     flat: yes
+  become: true 
   loop:
     - { src: "{{ easy_rsa_dir }}/pki/issued/{{ client_name }}.crt", dest: "{{ client_name }}.crt" }
     - { src: "{{ easy_rsa_dir }}/pki/private/{{ client_name }}.key", dest: "{{ client_name }}.key" }
