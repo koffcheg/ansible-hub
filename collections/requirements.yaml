@@ -1,0 +1,3 @@
+# collections/requirements.yaml
+collections:
+  - name: google.cloud

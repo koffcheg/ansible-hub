@@ -18,13 +18,14 @@
   register: client_archive
 
 - name: Upload to GCP Secret Manager
-  gcp_secret:
+  google.cloud.gcp_secret:
     name: "{{ gcp_secrets_prefix }}{{ client_name }}"
     data: "{{ client_archive.content }}"
     state: present
     project: "{{ gcp_project_id }}"
   retries: 3
   delay: 5
+  delegate_to: localhost
   register: gcp_result
 
 - name: Confirm upload complete
