@@ -1,20 +1,20 @@
 ---
 # roles/vpn_client/tasks/upload.yaml
-- name: Check archive
+- name: Check if archive exists on controller
+  delegate_to: localhost
   stat:
     path: "{{ client_config_dir }}/{{ client_name }}.tar.gz"
-  delegate_to: localhost
   register: archive_check
 
-- name: Fail if archive missing
+- name: Abort if archive missing
   fail:
-    msg: "Missing archive for {{ client_name }} in {{ client_config_dir }}"
+    msg: "Client archive not found: {{ client_config_dir }}/{{ client_name }}.tar.gz"
   when: not archive_check.stat.exists
 
-- name: Read archive
+- name: Read and base64 encode archive
+  delegate_to: localhost
   slurp:
     src: "{{ client_config_dir }}/{{ client_name }}.tar.gz"
-  delegate_to: localhost
   register: client_archive
 
 - name: Upload to GCP Secret Manager
@@ -25,6 +25,8 @@
     project: "{{ gcp_project_id }}"
   retries: 3
   delay: 5
+  register: gcp_result
 
-- debug:
-    msg: "Archive for {{ client_name }} uploaded to GCP"
+- name: Confirm upload complete
+  debug:
+    msg: "Uploaded {{ client_name }} archive to GCP Secret Manager ({{ gcp_secrets_prefix }}{{ client_name }})"

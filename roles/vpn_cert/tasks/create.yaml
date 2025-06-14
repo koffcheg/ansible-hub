@@ -1,46 +1,46 @@
 ---
 # roles/vpn_cert/tasks/create.yaml
-- name: Check if cert exists
+- name: Check if cert already exists
   stat:
     path: "{{ easy_rsa_dir }}/pki/reqs/{{ client_name }}.req"
   register: cert_check
 
-- name: Fail if cert exists
+- name: Abort if cert already exists
   fail:
-    msg: "Certificate for {{ client_name }} already exists"
+    msg: "Certificate for {{ client_name }} already exists. Use revoke or rotate."
   when: cert_check.stat.exists
 
-- name: Generate cert
+- name: Generate client certificate
   command: ./easyrsa --batch build-client-full {{ client_name }} nopass
   args:
     chdir: "{{ easy_rsa_dir }}"
 
 - name: Ensure local config dir exists
+  delegate_to: localhost
   file:
     path: "{{ client_config_dir }}"
     state: directory
     mode: '0700'
-  delegate_to: localhost
 
 - name: Fetch certs & keys to controller
   fetch:
-    src: "{{ easy_rsa_dir }}/pki/{{ item }}"
-    dest: "{{ client_config_dir }}/{{ item | basename }}"
+    src: "{{ item.src }}"
+    dest: "{{ client_config_dir }}/{{ item.dest }}"
     flat: yes
   loop:
-    - "issued/{{ client_name }}.crt"
-    - "private/{{ client_name }}.key"
-    - "ca.crt"
-    - "{{ ta_key_path | basename }}"
-  ignore_errors: false
+    - { src: "{{ easy_rsa_dir }}/pki/issued/{{ client_name }}.crt", dest: "{{ client_name }}.crt" }
+    - { src: "{{ easy_rsa_dir }}/pki/private/{{ client_name }}.key", dest: "{{ client_name }}.key" }
+    - { src: "{{ easy_rsa_dir }}/pki/ca.crt", dest: "ca.crt" }
+    - { src: "{{ ta_key_path }}", dest: "ta.key" }
 
-- name: Template OVPN config
+- name: Template client .ovpn config
+  delegate_to: localhost
   template:
     src: base_client.conf.j2
     dest: "{{ client_config_dir }}/{{ client_name }}.ovpn"
-  delegate_to: localhost
 
-- name: Archive client bundle
+- name: Create client archive
+  delegate_to: localhost
   archive:
     path:
       - "{{ client_config_dir }}/ca.crt"
@@ -50,12 +50,11 @@
       - "{{ client_config_dir }}/{{ client_name }}.ovpn"
     dest: "{{ client_config_dir }}/{{ client_name }}.tar.gz"
     format: gz
-  delegate_to: localhost
 
-- name: Save metadata
+- name: Save client metadata
+  delegate_to: localhost
   copy:
     dest: "{{ client_config_dir }}/metadata.yaml"
     content: |
       client_name: {{ client_name }}
       created_at: "{{ lookup('pipe', 'date -Iseconds') }}"
-  delegate_to: localhost
