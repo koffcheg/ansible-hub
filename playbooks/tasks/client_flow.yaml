@@ -1,8 +1,4 @@
-
-- name: Set client_name fact for current loop
-  set_fact:
-    client_name: "{{ item }}"
-
+---
 - name: Show expected vars
   debug:
     msg:
