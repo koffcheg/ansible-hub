@@ -1,27 +1,21 @@
 ---
 # roles/vpn_cert/tasks/create.yaml
-- name: Ensure required vars are present
-  assert:
-    that:
-      - client_name is defined
-      - client_config_dir is defined
-
-- name: Check if certificate already exists
+- name: Check if cert exists
   stat:
     path: "{{ easy_rsa_dir }}/pki/reqs/{{ client_name }}.req"
   register: cert_check
 
-- name: Abort if client cert already exists
+- name: Fail if cert exists
   fail:
-    msg: "Certificate for {{ client_name }} already exists. Use revoke or rotate first."
+    msg: "Certificate for {{ client_name }} exists"
   when: cert_check.stat.exists
 
-- name: Generate client certificate
+- name: Generate cert
   command: ./easyrsa --batch build-client-full {{ client_name }} nopass
   args:
     chdir: "{{ easy_rsa_dir }}"
 
-- name: Fetch generated certs and keys
+- name: Fetch certs & keys to controller
   fetch:
     src: "{{ easy_rsa_dir }}/pki/{{ item }}"
     dest: "{{ client_config_dir }}/{{ item | basename }}"
@@ -30,16 +24,16 @@
     - "issued/{{ client_name }}.crt"
     - "private/{{ client_name }}.key"
     - "ca.crt"
-    - "ta.key"
-  delegate_to: localhost
+    - "{{ ta_key_path | basename }}"
+  ignore_errors: false
 
-- name: Create OVPN config
+- name: Template OVPN config
   template:
-    src: templates/base_client.conf.j2
+    src: base_client.conf.j2
     dest: "{{ client_config_dir }}/{{ client_name }}.ovpn"
   delegate_to: localhost
 
-- name: Create client bundle archive
+- name: Archive client bundle
   archive:
     path:
       - "{{ client_config_dir }}/ca.crt"
@@ -51,11 +45,10 @@
     format: gz
   delegate_to: localhost
 
-- name: Save metadata locally
+- name: Save metadata
   copy:
     dest: "{{ client_config_dir }}/metadata.yaml"
     content: |
       client_name: {{ client_name }}
       created_at: "{{ lookup('pipe', 'date -Iseconds') }}"
-      static_ip: {{ static_ip | default('') }}
   delegate_to: localhost
