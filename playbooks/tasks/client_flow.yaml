@@ -1,4 +1,3 @@
----
 - name: Set client-specific path
   set_fact:
     client_config_base_dir: "/home/kharkov501/client-configs/{{ client_name }}"
@@ -16,6 +15,9 @@
       include_role:
         name: vpn_cert
         tasks_from: create
+      vars:
+        easy_rsa_dir: "{{ easy_rsa_dir }}"
+        client_config_base_dir: "{{ client_config_base_dir }}"
   rescue:
     - debug: msg="Failed to create certificate for {{ client_name }}"
     - meta: end_host
@@ -26,6 +28,8 @@
       include_role:
         name: vpn_client
         tasks_from: upload
+      vars:
+        client_config_base_dir: "{{ client_config_base_dir }}"
   rescue:
     - debug: msg="Failed to upload archive for {{ client_name }}"
     - meta: end_host
