@@ -1,10 +1,7 @@
 ---
 - name: Create and upload one or multiple VPN clients
   hosts: vpn
-  gather_facts: false
-
-  vars_files:
-    - group_vars/vpn.yaml
+  gather_facts: true
 
   tasks:
     - name: Ensure client_names are provided
