@@ -1,9 +1,16 @@
 ---
 # roles/vpn_client/tasks/upload.yaml
+- name: Ensure required vars are present
+  assert:
+    that:
+      - client_name is defined
+      - client_config_dir is defined
+
 - name: Ensure client archive exists
   stat:
     path: "{{ client_config_dir }}/{{ client_name }}.tar.gz"
   register: archive_check
+  delegate_to: localhost
 
 - name: Fail if archive missing
   fail:
@@ -11,10 +18,10 @@
   when: not archive_check.stat.exists
 
 - name: Read and encode archive for GCP upload
-  delegate_to: localhost
   slurp:
     src: "{{ client_config_dir }}/{{ client_name }}.tar.gz"
   register: client_archive
+  delegate_to: localhost
 
 - name: Upload archive to GCP Secret Manager
   gcp_secret:

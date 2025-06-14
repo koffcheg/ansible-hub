@@ -1,14 +1,17 @@
 ---
-- name: Set per-client local config directory
+# playbooks/tasks/client_flow.yaml
+- name: Compute per-client local config dir
   set_fact:
-    client_config_dir: "{{ client_configs_base_dir }}/{{ client_name }}"
+    local_client_config_dir: "{{ client_configs_base_dir }}/{{ client_name }}"
+  delegate_to: localhost
+  run_once: true
 
 - name: Show expected vars
   debug:
     msg:
       - "Client: {{ client_name }}"
       - "EasyRSA Dir: {{ easy_rsa_dir }}"
-      - "Local Client Config Dir: {{ client_config_dir }}"
+      - "Local Client Config Dir: {{ local_client_config_dir }}"
 
 - name: Create client certificate
   block:
@@ -17,7 +20,7 @@
         name: vpn_cert
         tasks_from: create
       vars:
-        client_config_dir: "{{ client_config_dir }}"
+        client_config_dir: "{{ local_client_config_dir }}"
   rescue:
     - debug: msg="Failed to create certificate for {{ client_name }}"
     - meta: end_host
@@ -29,7 +32,7 @@
         name: vpn_client
         tasks_from: upload
       vars:
-        client_config_dir: "{{ client_config_dir }}"
+        client_config_dir: "{{ local_client_config_dir }}"
   rescue:
     - debug: msg="Failed to upload archive for {{ client_name }}"
     - meta: end_host
