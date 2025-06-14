@@ -1,7 +1,11 @@
 ---
+# playbooks/create_and_upload.yaml
 - name: Create and upload one or multiple VPN clients
   hosts: vpn
-  gather_facts: true
+  gather_facts: false
+
+  vars_files:
+    - ../group_vars/vpn.yaml
 
   tasks:
     - name: Ensure client_names are provided
@@ -9,7 +13,7 @@
         that:
           - client_names is defined
           - client_names | length > 0
-        fail_msg: "Provide client names via -e 'client_names=[\"client1\", \"client2\"]'"
+        fail_msg: "Provide client names via -e 'client_names=[\"client1\"]'"
 
     - name: Create/upload for each client
       include_tasks: tasks/client_flow.yaml

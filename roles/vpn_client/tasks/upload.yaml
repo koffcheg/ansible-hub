@@ -1,4 +1,5 @@
 ---
+# roles/vpn_client/tasks/upload.yaml
 - name: Ensure client archive exists
   stat:
     path: "{{ client_config_base_dir }}/{{ client_name }}.tar.gz"

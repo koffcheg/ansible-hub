@@ -1,4 +1,5 @@
 ---
+# roles/vpn_cert/tasks/create.yaml
 - name: Check if certificate already exists
   stat:
     path: "{{ easy_rsa_dir }}/pki/reqs/{{ client_name }}.req"

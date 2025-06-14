@@ -1,4 +1,5 @@
 ---
+# group_vars/vpn.yaml
 easy_rsa_dir: /home/kharkov501/easy-rsa
 gcp_project_id: twitter-backup-371709
 gcp_secrets_prefix: vpn-client-
