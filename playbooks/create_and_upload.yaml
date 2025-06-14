@@ -3,9 +3,6 @@
   hosts: vpn_node
   gather_facts: false
 
-  vars:
-    client_config_base_dir: "/home/kharkov501/client-configs"
-
   tasks:
     - name: Ensure client_names are provided
       assert:

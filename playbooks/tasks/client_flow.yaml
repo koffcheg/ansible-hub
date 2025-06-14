@@ -1,19 +1,21 @@
 ---
+- name: Set client-specific path
+  set_fact:
+    client_config_base_dir: "/home/kharkov501/client-configs/{{ client_name }}"
+
 - name: Show expected vars
   debug:
     msg:
       - "Client: {{ client_name }}"
       - "EasyRSA Dir: {{ easy_rsa_dir | default('not defined') }}"
-      - "Config Path: /home/kharkov501/client-configs/{{ client_name }}"
+      - "Config Path: {{ client_config_base_dir }}"
 
 - name: Create client certificate
   block:
-    - name: Run vpn_cert::create with explicit var passing
+    - name: Run vpn_cert::create
       include_role:
         name: vpn_cert
         tasks_from: create
-      vars:
-        client_config_base_dir: "/home/kharkov501/client-configs/{{ client_name }}"
   rescue:
     - debug: msg="Failed to create certificate for {{ client_name }}"
     - meta: end_host
