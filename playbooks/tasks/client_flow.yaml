@@ -1,5 +1,10 @@
 ---
 # playbooks/tasks/client_flow.yaml
+- name: Compute client_config_dir
+  set_fact:
+    client_config_dir: "{{ client_configs_base_dir }}/{{ client_name }}"
+  delegate_to: localhost
+
 - name: Show expected vars
   debug:
     msg:
@@ -13,8 +18,6 @@
       include_role:
         name: vpn_cert
         tasks_from: create
-      vars:
-        client_config_dir: "{{ client_config_dir }}"
   rescue:
     - debug: msg="Failed to create certificate for {{ client_name }}"
     - meta: end_host
@@ -25,8 +28,6 @@
       include_role:
         name: vpn_client
         tasks_from: upload
-      vars:
-        client_config_dir: "{{ client_config_dir }}"
   rescue:
     - debug: msg="Failed to upload archive for {{ client_name }}"
     - meta: end_host

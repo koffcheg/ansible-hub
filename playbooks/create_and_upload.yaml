@@ -20,5 +20,3 @@
       loop: "{{ client_names }}"
       loop_control:
         loop_var: client_name
-      vars:
-        client_config_dir: "{{ client_configs_base_dir }}/{{ client_name }}"
