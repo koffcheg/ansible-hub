@@ -8,7 +8,7 @@
 
 - name: Fail if archive missing
   fail:
-    msg: "Missing archive for {{ client_name }}"
+    msg: "Missing archive for {{ client_name }} in {{ client_config_dir }}"
   when: not archive_check.stat.exists
 
 - name: Read archive

@@ -7,13 +7,20 @@
 
 - name: Fail if cert exists
   fail:
-    msg: "Certificate for {{ client_name }} exists"
+    msg: "Certificate for {{ client_name }} already exists"
   when: cert_check.stat.exists
 
 - name: Generate cert
   command: ./easyrsa --batch build-client-full {{ client_name }} nopass
   args:
     chdir: "{{ easy_rsa_dir }}"
+
+- name: Ensure local config dir exists
+  file:
+    path: "{{ client_config_dir }}"
+    state: directory
+    mode: '0700'
+  delegate_to: localhost
 
 - name: Fetch certs & keys to controller
   fetch:
