@@ -16,7 +16,6 @@
         name: vpn_cert
         tasks_from: create
       vars:
-        easy_rsa_dir: "{{ easy_rsa_dir }}"
         client_config_base_dir: "{{ client_config_base_dir }}"
   rescue:
     - debug: msg="Failed to create certificate for {{ client_name }}"
