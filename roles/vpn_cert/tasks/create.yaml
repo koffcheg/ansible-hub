@@ -25,7 +25,6 @@
     - "private/{{ client_name }}.key"
     - "ca.crt"
     - "ta.key"
-  ignore_errors: true  # Optional: if ta.key is missing
 
 - name: Create OVPN config
   template:

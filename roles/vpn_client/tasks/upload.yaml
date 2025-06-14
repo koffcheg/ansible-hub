@@ -27,4 +27,4 @@
   delay: 5
 
 - debug:
-    msg: "Uploaded archive for {{ client_name }} to GCP"
+    msg: "Uploaded archive for {{ client_name }} to GCP Secret Manager"

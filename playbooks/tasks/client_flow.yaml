@@ -1,6 +1,5 @@
 ---
-# tasks/client_flow.yaml
-- name: Set per-client config directory
+- name: Set per-client local config directory
   set_fact:
     client_config_dir: "{{ client_configs_base_dir }}/{{ client_name }}"
 
@@ -9,7 +8,7 @@
     msg:
       - "Client: {{ client_name }}"
       - "EasyRSA Dir: {{ easy_rsa_dir }}"
-      - "Client Config Dir: {{ client_config_dir }}"
+      - "Local Client Config Dir: {{ client_config_dir }}"
 
 - name: Create client certificate
   block:
@@ -36,4 +35,4 @@
     - meta: end_host
 
 - debug:
-    msg: "Completed full client onboarding for {{ client_name }}"
+    msg: "Completed full onboarding for {{ client_name }}"
