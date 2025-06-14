@@ -1,15 +1,15 @@
 ---
 # tasks/client_flow.yaml
-- name: Set client-specific path
+- name: Set per-client config directory
   set_fact:
-    client_config_base_dir: "/home/kharkov501/client-configs/{{ client_name }}"
+    client_config_dir: "{{ client_configs_base_dir }}/{{ client_name }}"
 
 - name: Show expected vars
   debug:
     msg:
       - "Client: {{ client_name }}"
-      - "EasyRSA Dir: {{ easy_rsa_dir | default('not defined') }}"
-      - "Config Path: {{ client_config_base_dir }}"
+      - "EasyRSA Dir: {{ easy_rsa_dir }}"
+      - "Client Config Dir: {{ client_config_dir }}"
 
 - name: Create client certificate
   block:
@@ -17,6 +17,8 @@
       include_role:
         name: vpn_cert
         tasks_from: create
+      vars:
+        client_config_dir: "{{ client_config_dir }}"
   rescue:
     - debug: msg="Failed to create certificate for {{ client_name }}"
     - meta: end_host
@@ -27,6 +29,8 @@
       include_role:
         name: vpn_client
         tasks_from: upload
+      vars:
+        client_config_dir: "{{ client_config_dir }}"
   rescue:
     - debug: msg="Failed to upload archive for {{ client_name }}"
     - meta: end_host

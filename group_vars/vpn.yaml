@@ -1,6 +1,9 @@
 ---
 # group_vars/vpn.yaml
 easy_rsa_dir: /home/kharkov501/easy-rsa
+client_configs_base_dir: "{{ lookup('env','HOME') }}/client-configs"
+ta_key_path: /etc/openvpn/ta.key
+
 gcp_project_id: twitter-backup-371709
 gcp_secrets_prefix: vpn-client-
 secret_location: projects/twitter-backup-371709/secrets

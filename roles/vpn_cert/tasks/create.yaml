@@ -18,34 +18,35 @@
 - name: Fetch generated certs and keys
   fetch:
     src: "{{ easy_rsa_dir }}/pki/{{ item }}"
-    dest: "{{ lookup('env','HOME') }}/client-configs/{{ client_name }}/{{ item | basename }}"
+    dest: "{{ client_config_dir }}/{{ item | basename }}"
     flat: yes
   loop:
     - "issued/{{ client_name }}.crt"
     - "private/{{ client_name }}.key"
     - "ca.crt"
     - "ta.key"
+  ignore_errors: true  # Optional: if ta.key is missing
 
 - name: Create OVPN config
   template:
     src: templates/base_client.conf.j2
-    dest: "{{ lookup('env','HOME') }}/client-configs/{{ client_name }}/{{ client_name }}.ovpn"
+    dest: "{{ client_config_dir }}/{{ client_name }}.ovpn"
 
 - name: Create client bundle archive
   archive:
     path:
-      - "{{ lookup('env','HOME') }}/client-configs/{{ client_name }}/ca.crt"
-      - "{{ lookup('env','HOME') }}/client-configs/{{ client_name }}/client.crt"
-      - "{{ lookup('env','HOME') }}/client-configs/{{ client_name }}/client.key"
-      - "{{ lookup('env','HOME') }}/client-configs/{{ client_name }}/ta.key"
-      - "{{ lookup('env','HOME') }}/client-configs/{{ client_name }}/{{ client_name }}.ovpn"
-    dest: "{{ lookup('env','HOME') }}/client-configs/{{ client_name }}/{{ client_name }}.tar.gz"
+      - "{{ client_config_dir }}/ca.crt"
+      - "{{ client_config_dir }}/{{ client_name }}.crt"
+      - "{{ client_config_dir }}/{{ client_name }}.key"
+      - "{{ client_config_dir }}/ta.key"
+      - "{{ client_config_dir }}/{{ client_name }}.ovpn"
+    dest: "{{ client_config_dir }}/{{ client_name }}.tar.gz"
     format: gz
 
 - name: Save metadata locally
   delegate_to: localhost
   copy:
-    dest: "{{ client_config_base_dir }}/metadata.yaml"
+    dest: "{{ client_config_dir }}/metadata.yaml"
     content: |
       client_name: {{ client_name }}
       created_at: "{{ lookup('pipe', 'date -Iseconds') }}"
