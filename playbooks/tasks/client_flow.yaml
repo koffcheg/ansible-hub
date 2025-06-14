@@ -20,7 +20,6 @@
       vars:
         client_name: "{{ client_name }}"
         client_config_base_dir: "{{ client_config_base_dir }}"
-        easy_rsa_dir: "{{ easy_rsa_dir }}"
   rescue:
     - debug: msg="Failed to create certificate for {{ client_name }}"
     - meta: end_host
@@ -34,8 +33,6 @@
       vars:
         client_name: "{{ client_name }}"
         client_config_base_dir: "{{ client_config_base_dir }}"
-        gcp_secrets_prefix: "{{ gcp_secrets_prefix }}"
-        gcp_project_id: "{{ gcp_project_id }}"
   rescue:
     - debug: msg="Failed to upload archive for {{ client_name }}"
     - meta: end_host
