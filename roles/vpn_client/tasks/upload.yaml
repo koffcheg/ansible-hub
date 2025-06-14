@@ -11,22 +11,26 @@
     msg: "Client archive not found: {{ client_config_dir }}/{{ client_name }}.tar.gz"
   when: not archive_check.stat.exists
 
-- name: Read and base64 encode archive
+- name: Ensure gcloud CLI is available
   delegate_to: localhost
-  slurp:
-    src: "{{ client_config_dir }}/{{ client_name }}.tar.gz"
-  register: client_archive
+  command: which gcloud
+  register: gcloud_path_check
+  failed_when: gcloud_path_check.rc != 0
+  changed_when: false
 
-- name: Upload to GCP Secret Manager
-  google.cloud.gcp_secret:
-    name: "{{ gcp_secrets_prefix }}{{ client_name }}"
-    data: "{{ client_archive.content }}"
-    state: present
-    project: "{{ gcp_project_id }}"
+- name: Upload to GCP Secret Manager using gcloud CLI
+  delegate_to: localhost
+  shell: |
+    gcloud secrets create {{ gcp_secrets_prefix }}{{ client_name }} \
+      --data-file="{{ client_config_dir }}/{{ client_name }}.tar.gz" \
+      --replication-policy="automatic" \
+      --project="{{ gcp_project_id }}" || \
+    gcloud secrets versions add {{ gcp_secrets_prefix }}{{ client_name }} \
+      --data-file="{{ client_config_dir }}/{{ client_name }}.tar.gz" \
+      --project="{{ gcp_project_id }}"
+  register: gcloud_result
   retries: 3
   delay: 5
-  delegate_to: localhost
-  register: gcp_result
 
 - name: Confirm upload complete
   debug:
