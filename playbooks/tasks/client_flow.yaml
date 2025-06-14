@@ -16,6 +16,8 @@
         name: vpn_cert
         tasks_from: create
       vars:
+        easy_rsa_dir: "{{ easy_rsa_dir }}"
+        client_name: "{{ client_name }}"
         client_config_base_dir: "{{ client_config_base_dir }}"
   rescue:
     - debug: msg="Failed to create certificate for {{ client_name }}"
@@ -28,7 +30,10 @@
         name: vpn_client
         tasks_from: upload
       vars:
+        client_name: "{{ client_name }}"
         client_config_base_dir: "{{ client_config_base_dir }}"
+        gcp_project_id: "{{ gcp_project_id }}"
+        gcp_secrets_prefix: "{{ gcp_secrets_prefix }}"
   rescue:
     - debug: msg="Failed to upload archive for {{ client_name }}"
     - meta: end_host
