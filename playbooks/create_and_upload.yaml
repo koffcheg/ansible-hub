@@ -17,6 +17,16 @@
       set_fact:
         static_map: "{{ static_map | from_json }}"
       when: static_map is string
+      
+    - name: Normalize static_map keys to strings
+      set_fact:
+        static_map: >-
+          {{
+            static_map | dict2items
+            | map(attribute='key') | list | first is string
+              | ternary(static_map, static_map | dict2items | map('combine', [{'key': item.key|string, 'value': item.value}] ) | items2dict)
+          }}
+      when: static_map is mapping
 
   tasks:
     - name: Create/upload for each client
