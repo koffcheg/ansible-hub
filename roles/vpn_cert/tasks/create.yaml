@@ -78,10 +78,4 @@
         content: "ifconfig-push {{ client_static_ip }} 255.255.255.0\n"
         mode: '0644'
 
-    - name: Reload OpenVPN
-      systemd:
-        name: openvpn-server@server
-        state: reloaded
-      when: reload_openvpn | default(true)
-
   when: client_static_ip is defined
