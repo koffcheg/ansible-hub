@@ -14,11 +14,6 @@
 
     - import_tasks: ../tasks/load_controller_vars.yaml
 
-    - name: Convert static_map to dict if passed as JSON string
-      set_fact:
-        static_map: "{{ static_map | from_json }}"
-      when: static_map is string
-
     - name: Normalize static_map keys to strings
       set_fact:
         static_map: >-
@@ -27,7 +22,7 @@
             | map('combine', [{'key': item.key|string, 'value': item.value}] )
             | list | items2dict
           }}
-      when: static_map is mapping
+      when: static_map is defined and static_map is mapping
 
   tasks:
     - name: Create/upload for each client
