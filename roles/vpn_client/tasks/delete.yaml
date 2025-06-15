@@ -16,11 +16,7 @@
       echo "Secret not found: {{ gcp_secrets_prefix }}{{ client_name }}"
     fi
   register: delete_gcp_secret_result
-  changed_when: "'Deleted secret' in delete_gcp_secret_result.stderr"
-
-- name: Show deletion result
-  debug:
-    var: delete_gcp_secret_result.stderr_lines
+  changed_when: "'Deleted secret' in delete_gcp_secret_result.stdout"
 
 - name: Delete local client config dir on controller
   delegate_to: localhost
