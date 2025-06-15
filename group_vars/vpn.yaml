@@ -4,3 +4,4 @@
 # Only relevant to the server
 easy_rsa_dir: /home/kharkov501/easy-rsa
 ta_key_path: /etc/openvpn/ta.key
+openvpn_config_dir: /etc/openvpn
