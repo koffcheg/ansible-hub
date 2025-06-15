@@ -19,19 +19,19 @@
         static_map: "{{ static_map | from_json }}"
       when: static_map is defined and static_map is string and static_map | regex_search('^{.*}$')
 
-    - name: Normalize static_map if it's a dict
-      set_fact:
-        static_map: >-
-          {{
-            static_map | dict2items
-            | map('combine', [{'key': item.key|string, 'value': item.value}] )
-            | list | items2dict
-          }}
-      when: static_map is defined and static_map is not string
-
   tasks:
-    - name: Create/upload for each client
-      include_tasks: tasks/client_flow.yaml
+    - name: Process each client
+      block:
+        - name: Set client_static_ip from static_map
+          set_fact:
+            client_static_ip: "{{ static_map[client_name] }}"
+          when:
+            - static_map is defined
+            - client_name in static_map
+
+        - name: Include client onboarding tasks
+          include_tasks: tasks/client_flow.yaml
+
       loop: "{{ client_names }}"
       loop_control:
         loop_var: client_name

@@ -71,7 +71,7 @@
     - name: Write static IP mapping
       copy:
         dest: "{{ openvpn_config_dir }}/ccd/{{ client_name }}"
-        content: "ifconfig-push {{ static_map[client_name] | default('') }} 255.255.255.0\n"
+        content: "ifconfig-push {{ client_static_ip }} 255.255.255.0\n"
         mode: '0644'
 
     - name: Reload OpenVPN
@@ -80,6 +80,4 @@
         state: reloaded
       when: reload_openvpn | default(true)
 
-  when:
-    - static_map is defined
-    - static_map[client_name] is defined
+  when: client_static_ip is defined
