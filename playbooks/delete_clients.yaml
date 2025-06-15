@@ -19,3 +19,4 @@
       loop: "{{ client_names }}"
       loop_control:
         loop_var: client_name
+      delegate_facts: true
