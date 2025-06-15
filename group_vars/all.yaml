@@ -1,14 +1,6 @@
 ---
 # group_vars/all.yaml
 
-# Used by controller tasks (delegated to localhost)
-ansible_controller_user: "{{ lookup('env', 'USER') | default('ansible') }}"
-client_configs_base_dir: "/home/{{ ansible_controller_user }}/client-configs"
-
-# GCP secret management
-gcp_project_id: twitter-backup-371709
-gcp_secrets_prefix: vpn-client-
-
 # Only relevant to the server
 easy_rsa_dir: /home/kharkov501/easy-rsa
 ta_key_path: /etc/openvpn/ta.key
