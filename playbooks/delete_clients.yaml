@@ -2,7 +2,8 @@
 - name: Deactivate and delete one or more VPN clients
   hosts: vpn
   gather_facts: false
-
+  become: true
+  
   pre_tasks:
     - name: Ensure client_names are provided
       fail:
