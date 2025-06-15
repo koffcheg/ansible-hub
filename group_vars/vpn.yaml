@@ -7,3 +7,7 @@ ta_key_path: /etc/openvpn/ta.key
 # Ansible Hub (controller) — resolved fully via inventory_hostname == localhost
 ansible_controller_user: "{{ lookup('env', 'USER') | default('ansible') }}"
 client_configs_base_dir: "/home/{{ ansible_controller_user }}/client-configs"
+
+# GCP
+gcp_project_id: twitter-backup-371709
+gcp_secrets_prefix: vpn-client-

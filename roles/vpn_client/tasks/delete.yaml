@@ -33,3 +33,24 @@
   debug:
     msg: "Deleted local files at {{ client_configs_base_dir }}/{{ client_name }}"
   when: local_cleanup_result.changed
+
+- name: Delete client cert from EasyRSA 
+  file:
+    path: "{{ easy_rsa_dir }}/pki/issued/{{ client_name }}.crt"
+    state: absent
+  register: crt_deleted
+
+- name: Delete client key from EasyRSA 
+  file:
+    path: "{{ easy_rsa_dir }}/pki/private/{{ client_name }}.key"
+    state: absent
+
+- name: Delete client request file 
+  file:
+    path: "{{ easy_rsa_dir }}/pki/reqs/{{ client_name }}.req"
+    state: absent 
+
+- name: Delete CCD static IP assignment 
+  file:
+    path: "/etc/openvpn/ccd/{{ client_name }}"
+    state: absent
