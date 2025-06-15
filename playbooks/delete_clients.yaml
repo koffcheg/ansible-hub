@@ -1,5 +1,16 @@
 ---
 # playbooks/delete_clients.yaml
+- name: Load controller (localhost) vars
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Set controller vars as facts globally
+      set_fact:
+        gcp_project_id: "{{ gcp_project_id }}"
+        gcp_secrets_prefix: "{{ gcp_secrets_prefix }}"
+        client_configs_base_dir: "{{ client_configs_base_dir }}"
+      when: gcp_project_id is defined
+
 - name: Deactivate and delete one or more VPN clients
   hosts: vpn
   gather_facts: false
@@ -16,3 +27,4 @@
       loop: "{{ client_names }}"
       loop_control:
         loop_var: client_name
+
