@@ -9,12 +9,9 @@
   debug:
     msg:
       - "Client: {{ client_name }}"
+      - "Static IP: {{ client_static_ip }}"
       - "EasyRSA Dir: {{ easy_rsa_dir }}"
       - "Local Client Config Dir: {{ client_config_dir }}"
-
-- name: Log static IP for client (if any)
-  debug:
-    msg: "Static IP for {{ client_name }} is {{ client_static_ip | default('UNDEFINED') }}"
 
 - name: Create client certificate
   block:

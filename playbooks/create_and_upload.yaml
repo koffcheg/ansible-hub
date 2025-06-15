@@ -14,14 +14,23 @@
 
     - import_tasks: ../tasks/load_controller_vars.yaml
 
-    - name: Parse static_map if it's a JSON string
+    - name: Generate static_map from client_names and base_ip
       set_fact:
-        static_map: "{{ static_map | from_json }}"
-      when: static_map is defined and static_map is string and static_map | regex_search('^{.*}$')
+        static_map: >-
+          {{
+            dict(client_names | zip(
+              range(base_ip | ipaddr('int'),
+                    (base_ip | ipaddr('int')) + client_names | length)
+              | map('int') | map('community.general.ipaddr') | list))
+          }}
+      vars:
+        base_ip: "10.9.0.30"
 
   tasks:
-    - name: Set facts and include per-client task
-      include_tasks: tasks/client_wrapper.yaml
+    - name: Provision each client
+      include_tasks: tasks/client_flow.yaml
       loop: "{{ client_names }}"
       loop_control:
         loop_var: client_name
+      vars:
+        client_static_ip: "{{ static_map[client_name] }}"
