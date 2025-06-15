@@ -14,12 +14,12 @@
 
     - import_tasks: ../tasks/load_controller_vars.yaml
 
-    - name: Try convert static_map if it's a JSON string
+    - name: Parse static_map if it's a JSON string
       set_fact:
         static_map: "{{ static_map | from_json }}"
-      when: static_map is string and static_map.startswith('{') and static_map.endswith('}')
+      when: static_map is defined and static_map is string and static_map | regex_search('^{.*}$')
 
-    - name: Normalize static_map keys to strings
+    - name: Normalize static_map if it's a dict
       set_fact:
         static_map: >-
           {{
@@ -27,7 +27,7 @@
             | map('combine', [{'key': item.key|string, 'value': item.value}] )
             | list | items2dict
           }}
-      when: static_map is defined
+      when: static_map is defined and static_map is not string
 
   tasks:
     - name: Create/upload for each client
