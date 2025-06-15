@@ -4,8 +4,8 @@
   hosts: vpn
   gather_facts: false
 
-  vars:
-    client_names: []
+  vars_files:
+    - "../host_vars/localhost.yaml"
 
   pre_tasks:
     - name: Ensure client_names are provided
