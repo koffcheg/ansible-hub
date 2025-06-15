@@ -13,20 +13,20 @@
         fail_msg: "Provide client names via -e 'client_names=[\"client1\"]'"
     - import_tasks: ../tasks/load_controller_vars.yaml
 
-    - name: Convert static_map to dict if passed as YAML/JSON string
+    - name: Convert static_map to dict if passed as JSON string
       set_fact:
         static_map: "{{ static_map | from_json }}"
       when: static_map is string
-      
+
     - name: Normalize static_map keys to strings
       set_fact:
         static_map: >-
           {{
             static_map | dict2items
-            | map(attribute='key') | list | first is string
-              | ternary(static_map, static_map | dict2items | map('combine', [{'key': item.key|string, 'value': item.value}] ) | items2dict)
+            | map('combine', [{'key': item.key|string, 'value': item.value}] )
+            | list | items2dict
           }}
-      when: static_map is mapping
+      when: static_map is defined
 
   tasks:
     - name: Create/upload for each client
