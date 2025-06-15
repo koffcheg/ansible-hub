@@ -24,8 +24,7 @@
     mode: '0700'
 
 - name: Fetch certs & keys to controller
-  delegate_to: localhost
-  become: false
+  become: true
   fetch:
     src: "{{ item.src }}"
     dest: "{{ client_config_dir }}/{{ item.dest }}"
