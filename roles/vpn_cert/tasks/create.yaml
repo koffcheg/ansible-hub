@@ -67,20 +67,17 @@
         path: "{{ openvpn_config_dir }}/ccd"
         state: directory
         mode: '0755'
-      become: true  
 
     - name: Write static IP mapping
       copy:
         dest: "{{ openvpn_config_dir }}/ccd/{{ client_name }}"
         content: "ifconfig-push {{ client_static_ip }} 255.255.255.0\n"
         mode: '0644'
-      become: true  
 
     - name: Reload OpenVPN
       systemd:
         name: openvpn-server@server
         state: reloaded
       when: reload_openvpn | default(true)
-      become: true  
-      
+
   when: client_static_ip is defined
