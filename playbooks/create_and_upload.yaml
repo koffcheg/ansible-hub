@@ -19,7 +19,7 @@
         static_map: >-
           {{
             dict(client_names | zip(
-              range(base_ip | ipaddr('int'),
+              range(base_ip | ansible.utils.ipaddr('int'),
                     (base_ip | ipaddr('int')) + client_names | length)
               | map('int') | map('community.general.ipaddr') | list))
           }}

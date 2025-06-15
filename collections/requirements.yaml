@@ -1,3 +1,4 @@
 # collections/requirements.yaml
 collections:
   - name: google.cloud
+  - name: ansible.utils
