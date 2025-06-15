@@ -13,6 +13,13 @@
         msg: "client_names must be passed using -e"
       when: client_names is not defined or client_names | length == 0
 
+    - name: Resolve vars explicitly for safe looping
+      set_fact:
+        resolved_gcp_project_id: "{{ gcp_project_id }}"
+        resolved_gcp_secrets_prefix: "{{ gcp_secrets_prefix }}"
+        resolved_easy_rsa_dir: "{{ easy_rsa_dir }}"
+        resolved_client_configs_base_dir: "{{ client_configs_base_dir }}"
+
   tasks:
     - name: Deactivate and delete client
       include_tasks: ../roles/vpn_client/tasks/delete.yaml
@@ -20,7 +27,7 @@
       loop_control:
         loop_var: client_name
       vars:
-        gcp_project_id: "{{ gcp_project_id }}"
-        gcp_secrets_prefix: "{{ gcp_secrets_prefix }}"
-        client_configs_base_dir: "{{ client_configs_base_dir }}"
-        easy_rsa_dir: "{{ easy_rsa_dir }}"
+        gcp_project_id: "{{ resolved_gcp_project_id }}"
+        gcp_secrets_prefix: "{{ resolved_gcp_secrets_prefix }}"
+        easy_rsa_dir: "{{ resolved_easy_rsa_dir }}"
+        client_configs_base_dir: "{{ resolved_client_configs_base_dir }}"
