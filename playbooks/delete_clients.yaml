@@ -1,21 +1,5 @@
 ---
 # playbooks/delete_clients.yaml
-# 1. Load controller-local vars via localhost
-- name: Load vars for delegated localhost
-  hosts: localhost
-  gather_facts: false
-  tasks:
-    - name: Set controller vars as facts
-      set_fact:
-        gcp_secrets_prefix: "{{ gcp_secrets_prefix }}"
-        gcp_project_id: "{{ gcp_project_id }}"
-        client_configs_base_dir: "{{ client_configs_base_dir }}"
-      when:
-        - gcp_secrets_prefix is defined
-        - gcp_project_id is defined
-        - client_configs_base_dir is defined
-
-# 2. Main deletion tasks for VPN clients
 - name: Deactivate and delete one or more VPN clients
   hosts: vpn
   gather_facts: false
