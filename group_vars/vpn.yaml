@@ -1,5 +1,5 @@
 ---
-# group_vars/all.yaml
+# group_vars/vpn.yaml
 
 # Only relevant to the server
 easy_rsa_dir: /home/kharkov501/easy-rsa
