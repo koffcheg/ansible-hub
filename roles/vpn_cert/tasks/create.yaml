@@ -75,7 +75,7 @@
         mode: '0644'
       when: static_map is defined and client_name in static_map
 
-    - name: Reload OpenVPN (if needed)
+    - name: Reload OpenVPN
       systemd:
         name: openvpn-server@server
         state: reloaded
