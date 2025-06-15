@@ -73,11 +73,14 @@
         dest: "{{ openvpn_config_dir }}/ccd/{{ client_name }}"
         content: "ifconfig-push {{ static_map[client_name] }} 255.255.255.0\n"
         mode: '0644'
-      when: static_map is mapping and static_map[client_name] is defined
 
     - name: Reload OpenVPN
       systemd:
         name: openvpn-server@server
         state: reloaded
-      when: reload_openvpn | default(true) and static_map is mapping and static_map[client_name] is defined
-  when: static_map is mapping and static_map[client_name] is defined
+      when: reload_openvpn | default(true)
+
+  when:
+    - static_map is defined
+    - static_map is mapping
+    - static_map[client_name] is defined
