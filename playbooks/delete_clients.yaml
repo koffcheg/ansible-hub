@@ -19,3 +19,8 @@
       loop: "{{ client_names }}"
       loop_control:
         loop_var: client_name
+      vars:
+        gcp_project_id: "{{ gcp_project_id }}"
+        gcp_secrets_prefix: "{{ gcp_secrets_prefix }}"
+        client_configs_base_dir: "{{ client_configs_base_dir }}"
+        easy_rsa_dir: "{{ easy_rsa_dir }}"
