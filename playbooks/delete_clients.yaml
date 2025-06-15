@@ -10,7 +10,7 @@
   pre_tasks:
     - name: Ensure client_names are provided
       fail:
-        msg: "client_names must be passed using -e \"client_names=['client1']\""
+        msg: "client_names must be passed using -e"
       when: client_names is not defined or client_names | length == 0
 
   tasks:

@@ -1,39 +1,35 @@
 ---
-# roles/vpn_cert/tasks/delete.yaml
-- name: Revoke certificate if exists
-  command: "./easyrsa revoke {{ client_name }}"
-  args:
-    chdir: "{{ easy_rsa_dir }}"
-  when: lookup('file', '{{ easy_rsa_dir }}/pki/issued/{{ client_name }}.crt', errors='ignore') is defined
+# roles/vpn_client/tasks/delete.yaml
+- name: Ensure gcloud CLI is available
+  delegate_to: localhost
+  command: which gcloud
+  register: gcloud_path_check
+  failed_when: gcloud_path_check.rc != 0
+  changed_when: false
 
-- name: Regenerate CRL
-  command: ./easyrsa gen-crl
-  args:
-    chdir: "{{ easy_rsa_dir }}"
+- name: Delete GCP Secret (if exists)
+  delegate_to: localhost
+  shell: |
+    if gcloud secrets describe {{ gcp_secrets_prefix }}{{ client_name }} --project={{ gcp_project_id }} 2>/dev/null; then
+      gcloud secrets delete {{ gcp_secrets_prefix }}{{ client_name }} --quiet --project={{ gcp_project_id }}
+    else
+      echo "Secret not found: {{ gcp_secrets_prefix }}{{ client_name }}"
+    fi
+  register: delete_gcp_secret_result
+  changed_when: "'Deleted secret' in delete_gcp_secret_result.stdout"
 
-- name: Delete issued, private, reqs
-  file:
-    path: "{{ item }}"
-    state: absent
-  loop:
-    - "{{ easy_rsa_dir }}/pki/issued/{{ client_name }}.crt"
-    - "{{ easy_rsa_dir }}/pki/private/{{ client_name }}.key"
-    - "{{ easy_rsa_dir }}/pki/reqs/{{ client_name }}.req"
+- name: Show deletion result
+  debug:
+    var: delete_gcp_secret_result.stdout_lines
 
-- name: Remove CCD file
-  file:
-    path: "/etc/openvpn/ccd/{{ client_name }}"
-    state: absent
-
-- name: Delete local config (controller)
+- name: Delete local client config dir on controller
   delegate_to: localhost
   file:
     path: "{{ client_configs_base_dir }}/{{ client_name }}"
     state: absent
+  register: local_cleanup_result
 
-- name: Delete GCP Secret
-  delegate_to: localhost
-  google.cloud.secret_manager_secret:
-    name: "{{ gcp_secrets_prefix }}{{ client_name }}"
-    state: absent
-    project: "{{ gcp_project_id }}"
+- name: Confirm local cleanup
+  debug:
+    msg: "Deleted local files at {{ client_configs_base_dir }}/{{ client_name }}"
+  when: local_cleanup_result.changed
