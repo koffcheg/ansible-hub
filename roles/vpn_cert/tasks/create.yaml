@@ -17,17 +17,19 @@
 
 - name: Ensure local config dir exists
   delegate_to: localhost
+  become: false
   file:
     path: "{{ client_config_dir }}"
     state: directory
     mode: '0700'
 
 - name: Fetch certs & keys to controller
+  delegate_to: localhost
+  become: false
   fetch:
     src: "{{ item.src }}"
     dest: "{{ client_config_dir }}/{{ item.dest }}"
     flat: yes
-  become: true
   loop:
     - { src: "{{ easy_rsa_dir }}/pki/issued/{{ client_name }}.crt", dest: "{{ client_name }}.crt" }
     - { src: "{{ easy_rsa_dir }}/pki/private/{{ client_name }}.key", dest: "{{ client_name }}.key" }
@@ -36,12 +38,14 @@
 
 - name: Template client .ovpn config
   delegate_to: localhost
+  become: false
   template:
     src: base_client.conf.j2
     dest: "{{ client_config_dir }}/{{ client_name }}.ovpn"
 
 - name: Create client archive
   delegate_to: localhost
+  become: false
   archive:
     path:
       - "{{ client_config_dir }}/ca.crt"
@@ -54,6 +58,7 @@
 
 - name: Save client metadata
   delegate_to: localhost
+  become: false
   copy:
     dest: "{{ client_config_dir }}/metadata.yaml"
     content: |

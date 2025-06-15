@@ -2,6 +2,7 @@
 # roles/vpn_client/tasks/upload.yaml
 - name: Check if archive exists on controller
   delegate_to: localhost
+  become: false
   stat:
     path: "{{ client_config_dir }}/{{ client_name }}.tar.gz"
   register: archive_check
@@ -13,6 +14,7 @@
 
 - name: Ensure gcloud CLI is available
   delegate_to: localhost
+  become: false
   command: which gcloud
   register: gcloud_path_check
   failed_when: gcloud_path_check.rc != 0
@@ -20,6 +22,7 @@
 
 - name: Upload to GCP Secret Manager using gcloud CLI
   delegate_to: localhost
+  become: false
   shell: |
     gcloud secrets create {{ gcp_secrets_prefix }}{{ client_name }} \
       --data-file="{{ client_config_dir }}/{{ client_name }}.tar.gz" \
@@ -33,5 +36,7 @@
   delay: 5
 
 - name: Confirm upload complete
+  become: false
+  delegate_to: localhost
   debug:
     msg: "Uploaded {{ client_name }} archive to GCP Secret Manager ({{ gcp_secrets_prefix }}{{ client_name }})"
