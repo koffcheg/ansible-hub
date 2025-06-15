@@ -4,7 +4,7 @@
   hosts: vpn
   gather_facts: false
 
-  tasks:
+  pre_tasks:
     - name: Ensure client_names are provided
       assert:
         that:
@@ -12,6 +12,19 @@
           - client_names | length > 0
         fail_msg: "Provide client names via -e 'client_names=[\"client1\"]'"
 
+    - name: Load controller vars for delegated localhost
+      include_vars:
+        file: "../host_vars/localhost.yaml"
+      delegate_to: localhost
+      run_once: true
+
+    - name: Load VPN host group vars for delegated localhost
+      include_vars:
+        file: "../group_vars/vpn.yaml"
+      delegate_to: localhost
+      run_once: true
+
+  tasks:
     - name: Create/upload for each client
       include_tasks: tasks/client_flow.yaml
       loop: "{{ client_names }}"
