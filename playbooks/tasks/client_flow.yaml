@@ -12,10 +12,9 @@
       - "EasyRSA Dir: {{ easy_rsa_dir }}"
       - "Local Client Config Dir: {{ client_config_dir }}"
 
-- name: Log static map value (if any)
+- name: Log static IP for client (if any)
   debug:
-    msg: "Static IP for {{ client_name }} is {{ static_map[client_name] | default('UNDEFINED') }}"
-  when: static_map is defined
+    msg: "Static IP for {{ client_name }} is {{ static_map[client_name] if static_map is defined and client_name in static_map else 'UNDEFINED' }}"
 
 - name: Create client certificate
   block:
