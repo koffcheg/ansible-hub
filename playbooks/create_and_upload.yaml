@@ -20,18 +20,8 @@
       when: static_map is defined and static_map is string and static_map | regex_search('^{.*}$')
 
   tasks:
-    - name: Process each client
-      block:
-        - name: Set client_static_ip from static_map
-          set_fact:
-            client_static_ip: "{{ static_map[client_name] }}"
-          when:
-            - static_map is defined
-            - client_name in static_map
-
-        - name: Include client onboarding tasks
-          include_tasks: tasks/client_flow.yaml
-
+    - name: Set facts and include per-client task
+      include_tasks: tasks/client_wrapper.yaml
       loop: "{{ client_names }}"
       loop_control:
         loop_var: client_name

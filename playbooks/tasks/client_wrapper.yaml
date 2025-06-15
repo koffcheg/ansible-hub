@@ -1,0 +1,11 @@
+---
+# playbooks/tasks/client_wrapper.yaml
+- name: Set client_static_ip if defined in static_map
+  set_fact:
+    client_static_ip: "{{ static_map[client_name] }}"
+  when:
+    - static_map is defined
+    - client_name in static_map
+
+- name: Include actual client onboarding logic
+  include_tasks: client_flow.yaml
