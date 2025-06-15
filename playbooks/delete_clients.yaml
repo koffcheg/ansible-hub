@@ -8,18 +8,7 @@
       fail:
         msg: "client_names must be passed using -e"
       when: client_names is not defined or client_names | length == 0
-
-    - name: Load controller vars for delegated localhost
-      include_vars:
-        file: "../host_vars/localhost.yaml"
-      delegate_to: localhost
-      run_once: true
-
-    - name: Load VPN host group vars for delegated localhost
-      include_vars:
-        file: "../group_vars/vpn.yaml"
-      delegate_to: localhost
-      run_once: true
+    - import_tasks: ../tasks/load_controller_vars.yaml
 
   tasks:
     - name: Deactivate and delete client

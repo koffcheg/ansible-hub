@@ -1,0 +1,11 @@
+# tasks/load_controller_vars.yaml
+
+- name: Load controller vars for delegated localhost
+  include_vars: ../host_vars/localhost.yaml
+  delegate_to: localhost
+  run_once: true
+
+- name: Load VPN host group vars for delegated localhost
+  include_vars: ../group_vars/vpn.yaml
+  delegate_to: localhost
+  run_once: true
