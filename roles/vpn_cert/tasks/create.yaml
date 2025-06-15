@@ -59,3 +59,25 @@
     content: |
       client_name: {{ client_name }}
       created_at: "{{ lookup('pipe', 'date -Iseconds') }}"
+
+- name: Apply static IP (if defined)
+  block:
+    - name: Ensure CCD directory exists
+      file:
+        path: "{{ openvpn_config_dir }}/ccd"
+        state: directory
+        mode: '0755'
+
+    - name: Write static IP mapping
+      copy:
+        dest: "{{ openvpn_config_dir }}/ccd/{{ client_name }}"
+        content: "ifconfig-push {{ static_map[client_name] }} 255.255.255.0\n"
+        mode: '0644'
+      when: static_map is defined and client_name in static_map
+
+    - name: Reload OpenVPN (if needed)
+      systemd:
+        name: openvpn-server@server
+        state: reloaded
+      when: reload_openvpn | default(true) and static_map is defined and client_name in static_map
+  when: static_map is defined and client_name in static_map
