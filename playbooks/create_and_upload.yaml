@@ -13,9 +13,9 @@
         fail_msg: "Provide client names via -e 'client_names=[\"client1\"]'"
     - import_tasks: ../tasks/load_controller_vars.yaml
 
-    - name: Convert static_map to dict if passed as JSON string
+    - name: Convert static_map to dict if passed as YAML/JSON string
       set_fact:
-        static_map: "{{ static_map | from_json }}"
+        static_map: "{{ static_map | from_yaml }}"
       when: static_map is string
 
   tasks:
