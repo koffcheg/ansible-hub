@@ -12,6 +12,11 @@
       - "EasyRSA Dir: {{ easy_rsa_dir }}"
       - "Local Client Config Dir: {{ client_config_dir }}"
 
+- name: Convert static_map to dict if passed as JSON string
+  set_fact:
+    static_map: "{{ static_map | from_json }}"
+  when: static_map is string
+
 - name: Create client certificate
   block:
     - name: Run vpn_cert::create
