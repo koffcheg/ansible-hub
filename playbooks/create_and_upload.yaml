@@ -13,11 +13,14 @@
 
     - import_tasks: ../tasks/load_controller_vars.yaml
 
-    - name: Build static_map from clients.yaml
+    - name: Load clients_index.yaml
+      include_vars:
+        file: "../group_vars/vpn/clients_index.yaml"
+        name: clients_data
+
+    - name: Build static_map from clients_index
       set_fact:
-        static_map: "{{ lookup('vars', 'clients') }}"
-      vars_files:
-        - "../group_vars/vpn/clients_index.yaml"
+        static_map: "{{ clients_data.clients }}"
 
   tasks:
     - name: Set client_static_ip and include onboarding logic
