@@ -1,9 +1,5 @@
 ---
 # group_vars/all.yaml
-# Controller settings
-ansible_controller_user: "{{ lookup('env', 'USER') | default('ansible') }}"
-client_configs_base_dir: "/home/{{ ansible_controller_user }}/client-configs"
 
-# GCP Secrets
-gcp_project_id: twitter-backup-371709
-gcp_secrets_prefix: vpn-client-
+# Generic facts (if needed globally, but no delegation logic here)
+ansible_controller_user: "{{ lookup('env', 'USER') | default('ansible') }}"
