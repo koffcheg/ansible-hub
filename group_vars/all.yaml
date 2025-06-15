@@ -1,4 +1,5 @@
-# hots_vars/localhost.yaml
+---
+# group_vars/all.yaml
 # Ansible Hub (controller) — resolved fully via inventory_hostname == localhost
 ansible_controller_user: "{{ lookup('env', 'USER') | default('ansible') }}"
 client_configs_base_dir: "/home/{{ ansible_controller_user }}/client-configs"
