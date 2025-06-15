@@ -1,10 +1,39 @@
-- name: Remove local client config (if exists)
+---
+# roles/vpn_cert/tasks/delete.yaml
+- name: Revoke certificate if exists
+  command: "./easyrsa revoke {{ client_name }}"
+  args:
+    chdir: "{{ easy_rsa_dir }}"
+  when: lookup('file', '{{ easy_rsa_dir }}/pki/issued/{{ client_name }}.crt', errors='ignore') is defined
+
+- name: Regenerate CRL
+  command: ./easyrsa gen-crl
+  args:
+    chdir: "{{ easy_rsa_dir }}"
+
+- name: Delete issued, private, reqs
   file:
-    path: "client-configs/{{ client_name }}"
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ easy_rsa_dir }}/pki/issued/{{ client_name }}.crt"
+    - "{{ easy_rsa_dir }}/pki/private/{{ client_name }}.key"
+    - "{{ easy_rsa_dir }}/pki/reqs/{{ client_name }}.req"
+
+- name: Remove CCD file
+  file:
+    path: "/etc/openvpn/ccd/{{ client_name }}"
     state: absent
 
-- name: Delete secret from GCP
-  gcp_secret_manager_secret:
-    name: "openvpn_{{ client_name }}"
-    state: absent
+- name: Delete local config (controller)
   delegate_to: localhost
+  file:
+    path: "{{ client_configs_base_dir }}/{{ client_name }}"
+    state: absent
+
+- name: Delete GCP Secret
+  delegate_to: localhost
+  google.cloud.secret_manager_secret:
+    name: "{{ gcp_secrets_prefix }}{{ client_name }}"
+    state: absent
+    project: "{{ gcp_project_id }}"

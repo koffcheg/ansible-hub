@@ -1,18 +1,20 @@
 ---
-- name: Cleanup local client files/certs/configs
+# playbooks/delete_clients.yaml
+- name: Deactivate and delete one or more VPN clients
   hosts: vpn
   gather_facts: false
+
   vars:
     client_names: []
 
   pre_tasks:
     - name: Ensure client_names are provided
       fail:
-        msg: "client_names must be passed using -e"
+        msg: "client_names must be passed using -e \"client_names=['client1']\""
       when: client_names is not defined or client_names | length == 0
 
   tasks:
-    - name: Cleanup per client
+    - name: Deactivate and delete client
       include_tasks: ../roles/vpn_client/tasks/delete.yaml
       loop: "{{ client_names }}"
       loop_control:
