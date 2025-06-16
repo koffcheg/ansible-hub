@@ -1,0 +1,11 @@
+---
+# vpn_client/tasks/read_meta.yaml
+- name: Read client metadata from controller
+  delegate_to: localhost
+  slurp:
+    src: "{{ client_meta_dir }}/{{ inventory_hostname }}.yaml"
+  register: meta_raw
+  ignore_errors: true
+
+- set_fact:
+    client_meta: "{{ meta_raw.content | b64decode | from_yaml if meta_raw is defined and meta_raw.content is defined else {'installed': false, 'version': '', 'latest': ''} }}"

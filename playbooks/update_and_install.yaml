@@ -1,0 +1,53 @@
+---
+# playbooks/update_and_install.yaml
+- name: Rotate cert, upload archive, and install it on client (non-disruptive)
+  hosts: vpn
+  gather_facts: false
+  become: true
+
+  pre_tasks:
+    - name: Ensure client_names is provided
+      assert:
+        that:
+          - client_names is defined
+          - client_names | length > 0
+
+    - import_tasks: ../tasks/load_controller_vars.yaml
+
+  tasks:
+    - name: Rotate cert and upload archive
+      include_role:
+        name: vpn_cert
+        tasks_from: rotate
+      loop: "{{ client_names }}"
+      loop_control:
+        loop_var: client_name
+
+- name: Install client config (remote)
+  hosts: clients
+  gather_facts: false
+  become: true
+
+  tasks:
+    - name: Read client metadata
+      include_role:
+        name: vpn_client
+        tasks_from: read_meta
+
+    - name: Check if reinstall is required
+      when: not client_meta.installed or client_meta.version != client_meta.latest
+      block:
+        - name: Download and extract archive from secret
+          include_role:
+            name: vpn_client
+            tasks_from: install_from_secret
+
+        - name: Mark installed version
+          include_role:
+            name: vpn_client
+            tasks_from: mark_installed
+
+        - name: Revoke old cert if pending
+          include_role:
+            name: vpn_cert
+            tasks_from: revoke_pending

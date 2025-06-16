@@ -1,0 +1,11 @@
+---
+# vpn_client/tasks/write_meta.yaml
+- name: Write client metadata
+  delegate_to: localhost
+  copy:
+    dest: "{{ client_meta_dir }}/{{ client_name }}.yaml"
+    content: |
+      version: "{{ lookup('pipe', 'date +%s') }}"
+      latest: "{{ lookup('pipe', 'date +%s') }}"
+      installed: {{ installed | default(false) }}
+      pending_revoke: {{ pending_revoke | default(false) }}

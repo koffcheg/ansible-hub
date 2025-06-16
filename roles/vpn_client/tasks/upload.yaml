@@ -1,5 +1,10 @@
----
 # roles/vpn_client/tasks/upload.yaml
+- name: Ensure client_config_dir is defined
+  set_fact:
+    client_config_dir: "{{ client_configs_base_dir }}/{{ client_name }}"
+  when: client_config_dir is not defined
+  delegate_to: localhost
+
 - name: Check if archive exists on controller
   delegate_to: localhost
   become: false

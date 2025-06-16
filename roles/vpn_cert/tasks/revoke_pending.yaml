@@ -1,0 +1,35 @@
+---
+# vpn_cert/tasks/revoke_pending.yaml
+- name: Load client metadata
+  include_role:
+    name: vpn_client
+    tasks_from: read_meta
+
+- name: Revoke if pending_revoke is true
+  when: client_meta.pending_revoke | default(false)
+  block:
+    - name: Revoke cert
+      command: ./easyrsa revoke {{ inventory_hostname }}
+      args:
+        chdir: "{{ easy_rsa_dir }}"
+
+    - name: Regenerate CRL
+      command: ./easyrsa gen-crl
+      args:
+        chdir: "{{ easy_rsa_dir }}"
+
+    - name: Copy updated CRL
+      copy:
+        src: "{{ easy_rsa_dir }}/pki/crl.pem"
+        dest: "/etc/openvpn/crl.pem"
+        mode: '0644'
+
+    - name: Clear pending_revoke flag
+      delegate_to: localhost
+      copy:
+        dest: "{{ client_meta_dir }}/{{ inventory_hostname }}.yaml"
+        content: |
+          version: {{ client_meta.version }}
+          latest: {{ client_meta.latest }}
+          installed: true
+          pending_revoke: false

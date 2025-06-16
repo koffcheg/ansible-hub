@@ -1,9 +1,0 @@
-- name: Revoke client certificate
-  command: ./easyrsa revoke {{ client_name }}
-  args:
-    chdir: /etc/openvpn/easy-rsa
-
-- name: Regenerate CRL
-  command: ./easyrsa gen-crl
-  args:
-    chdir: /etc/openvpn/easy-rsa

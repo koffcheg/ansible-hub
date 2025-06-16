@@ -1,4 +1,3 @@
----
 # playbooks/tasks/client_flow.yaml
 - name: Compute client_config_dir
   set_fact:

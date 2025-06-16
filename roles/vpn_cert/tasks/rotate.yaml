@@ -1,9 +1,46 @@
-- name: Rotate cert (revoke + create)
-  include_tasks: revoke.yaml
+---
+# roles/vpn_cert/tasks/rotate.yaml
+- name: Generate new client cert (skip revoke)
+  command: ./easyrsa --batch build-client-full {{ client_name }} nopass
+  args:
+    chdir: "{{ easy_rsa_dir }}"
 
-- name: Wait after revoke
-  pause:
-    seconds: 2
+- name: Fetch certs & keys to controller
+  fetch:
+    src: "{{ item.src }}"
+    dest: "{{ client_config_dir }}/{{ item.dest }}"
+    flat: yes
+  loop:
+    - { src: "{{ easy_rsa_dir }}/pki/issued/{{ client_name }}.crt", dest: "{{ client_name }}.crt" }
+    - { src: "{{ easy_rsa_dir }}/pki/private/{{ client_name }}.key", dest: "{{ client_name }}.key" }
+    - { src: "{{ easy_rsa_dir }}/pki/ca.crt", dest: "ca.crt" }
+    - { src: "{{ ta_key_path }}", dest: "ta.key" }
 
-- name: Create new cert
-  include_tasks: create.yaml
+- name: Template .ovpn config
+  template:
+    src: base_client.conf.j2
+    dest: "{{ client_config_dir }}/{{ client_name }}.ovpn"
+
+- name: Create archive
+  archive:
+    path:
+      - "{{ client_config_dir }}/ca.crt"
+      - "{{ client_config_dir }}/{{ client_name }}.crt"
+      - "{{ client_config_dir }}/{{ client_name }}.key"
+      - "{{ client_config_dir }}/ta.key"
+      - "{{ client_config_dir }}/{{ client_name }}.ovpn"
+    dest: "{{ client_config_dir }}/{{ client_name }}.tar.gz"
+    format: gz
+
+- name: Save client metadata (update latest version)
+  include_role:
+    name: vpn_client
+    tasks_from: write_meta
+  vars:
+    installed: false
+    pending_revoke: true
+
+- name: Upload archive to GCP
+  include_role:
+    name: vpn_client
+    tasks_from: upload
