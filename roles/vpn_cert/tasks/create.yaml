@@ -40,7 +40,15 @@
   become: false
   template:
     src: base_client.conf.j2
-    dest: "{{ client_config_dir }}/{{ client_name }}.ovpn"
+    dest: "{{ client_config_dir }}/{{ client_name }}.conf"  # renamed for systemd usage
+
+- name: Copy dns-hooks.sh
+  delegate_to: localhost
+  become: false
+  copy:
+    src: files/dns-hooks.sh
+    dest: "{{ client_config_dir }}/dns-hooks.sh"
+    mode: '0755'
 
 - name: Create client archive
   delegate_to: localhost
@@ -51,7 +59,8 @@
       - "{{ client_config_dir }}/{{ client_name }}.crt"
       - "{{ client_config_dir }}/{{ client_name }}.key"
       - "{{ client_config_dir }}/ta.key"
-      - "{{ client_config_dir }}/{{ client_name }}.ovpn"
+      - "{{ client_config_dir }}/{{ client_name }}.conf"
+      - "{{ client_config_dir }}/dns-hooks.sh"
     dest: "{{ client_config_dir }}/{{ client_name }}.tar.gz"
     format: gz
 
@@ -77,5 +86,4 @@
         dest: "{{ openvpn_config_dir }}/ccd/{{ client_name }}"
         content: "ifconfig-push {{ client_static_ip }} 255.255.255.0\n"
         mode: '0644'
-
   when: client_static_ip is defined

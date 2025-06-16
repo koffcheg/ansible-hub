@@ -18,12 +18,12 @@ dhcp-option DNS 8.8.8.8
 dhcp-option DNS 1.1.1.1
 
 auth-nocache
-tls-auth ta.key 1
+tls-auth /etc/openvpn/client/ta.key 1
 key-direction 1
-ca ca.crt
-cert client.crt
-key client.key
+ca /etc/openvpn/client/ca.crt
+cert /etc/openvpn/client/{{ client_name }}.crt
+key /etc/openvpn/client/{{ client_name }}.key
 
 script-security 2
-up /etc/openvpn/dns-hooks.sh
-down /etc/openvpn/dns-hooks.sh
+up /etc/openvpn/client/dns-hooks.sh
+down /etc/openvpn/client/dns-hooks.sh
