@@ -46,7 +46,7 @@
   delegate_to: localhost
   become: false
   copy:
-    src: files/dns-hooks.sh
+    src: dns-hooks.sh
     dest: "{{ client_config_dir }}/dns-hooks.sh"
     mode: '0755'
 
