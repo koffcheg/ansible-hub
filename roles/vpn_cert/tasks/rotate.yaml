@@ -1,6 +1,15 @@
 ---
 # roles/vpn_cert/tasks/rotate.yaml
-- name: Generate new client cert (skip revoke)
+- name: Remove previous EasyRSA files
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ easy_rsa_dir }}/pki/reqs/{{ client_name }}.req"
+    - "{{ easy_rsa_dir }}/pki/issued/{{ client_name }}.crt"
+    - "{{ easy_rsa_dir }}/pki/private/{{ client_name }}.key"
+
+- name: Generate new client cert
   command: ./easyrsa --batch build-client-full {{ client_name }} nopass
   args:
     chdir: "{{ easy_rsa_dir }}"
@@ -32,7 +41,7 @@
     dest: "{{ client_config_dir }}/{{ client_name }}.tar.gz"
     format: gz
 
-- name: Save client metadata (update latest version)
+- name: Save client metadata
   include_role:
     name: vpn_client
     tasks_from: write_meta

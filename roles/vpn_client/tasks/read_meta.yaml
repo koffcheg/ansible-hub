@@ -1,11 +1,25 @@
----
-# vpn_client/tasks/read_meta.yaml
+- name: Check if client metadata file exists
+  delegate_to: localhost
+  stat:
+    path: "{{ client_meta_dir }}/{{ inventory_hostname }}.yaml"
+  register: meta_check
+
+- name: Generate initial client metadata if missing
+  delegate_to: localhost
+  copy:
+    dest: "{{ client_meta_dir }}/{{ inventory_hostname }}.yaml"
+    content: |
+      version: "{{ lookup('pipe', 'date +%s') }}"
+      latest: "{{ lookup('pipe', 'date +%s') }}"
+      installed: false
+      pending_revoke: false
+  when: not meta_check.stat.exists
+
 - name: Read client metadata from controller
   delegate_to: localhost
   slurp:
     src: "{{ client_meta_dir }}/{{ inventory_hostname }}.yaml"
   register: meta_raw
-  ignore_errors: true
 
 - set_fact:
-    client_meta: "{{ meta_raw.content | b64decode | from_yaml if meta_raw is defined and meta_raw.content is defined else {'installed': false, 'version': '', 'latest': ''} }}"
+    client_meta: "{{ meta_raw.content | b64decode | from_yaml }}"
