@@ -24,12 +24,12 @@
         dest: "/etc/openvpn/crl.pem"
         mode: '0644'
 
-    - name: Clear pending_revoke flag
-      delegate_to: localhost
-      copy:
-        dest: "{{ client_meta_dir }}/{{ inventory_hostname }}.yaml"
-        content: |
-          version: {{ client_meta.version }}
-          latest: {{ client_meta.latest }}
-          installed: true
-          pending_revoke: false
+- name: Clear pending_revoke flag
+  delegate_to: localhost
+  copy:
+    dest: "{{ hostvars['localhost']['client_meta_dir'] }}/{{ inventory_hostname }}.yaml"
+    content: |
+      version: {{ client_meta.version }}
+      latest: {{ client_meta.latest }}
+      installed: true
+      pending_revoke: false

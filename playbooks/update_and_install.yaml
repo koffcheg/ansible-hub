@@ -22,7 +22,7 @@
         loop_var: client_name
 
 - name: Install client config (remote)
-  hosts: clients
+  hosts: "{{ client_names }}"
   gather_facts: false
   become: true
 

@@ -5,6 +5,14 @@
   delegate_to: localhost
   run_once: true
 
+- name: Persist controller vars to facts
+  set_fact:
+    client_configs_base_dir: "{{ client_configs_base_dir }}"
+    client_meta_dir: "{{ client_meta_dir }}"
+  delegate_to: localhost
+  run_once: true
+
+
 - name: Load VPN host group vars for delegated localhost
   include_vars: ../group_vars/vpn.yaml
   delegate_to: localhost

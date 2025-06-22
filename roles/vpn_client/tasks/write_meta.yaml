@@ -3,7 +3,7 @@
 - name: Write client metadata
   delegate_to: localhost
   copy:
-    dest: "{{ client_meta_dir }}/{{ client_name }}.yaml"
+    dest: "{{ hostvars['localhost']['client_meta_dir'] }}/{{ client_name }}.yaml"
     content: |
       version: "{{ lookup('pipe', 'date +%s') }}"
       latest: "{{ lookup('pipe', 'date +%s') }}"
