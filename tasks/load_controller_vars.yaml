@@ -4,3 +4,8 @@
   include_vars: ../group_vars/vpn.yaml
   delegate_to: localhost
   run_once: true
+
+- name: Load all group vars for delegated localhost
+  include_vars: ../group_vars/all.yaml
+  delegate_to: localhost
+  run_once: true  

@@ -1,5 +1,5 @@
 ---
-# vpn_client/tasks/write_meta.yaml
+# roles/vpn_client/tasks/write_meta.yaml
 - name: Write client metadata
   delegate_to: localhost
   copy:

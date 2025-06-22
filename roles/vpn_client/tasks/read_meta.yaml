@@ -23,5 +23,6 @@
     src: "{{ client_meta_dir }}/{{ inventory_hostname }}.yaml"
   register: meta_raw
 
-- set_fact:
+- name: Parse metadata
+  set_fact:
     client_meta: "{{ meta_raw.content | b64decode | from_yaml }}"
