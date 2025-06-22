@@ -16,9 +16,16 @@
 
   tasks:
     - name: Rotate cert and upload archive
-      include_role:
-        name: vpn_cert
-        tasks_from: rotate
+      block:
+        - name: Set client_config_dir for {{ client_name }}
+          set_fact:
+            client_config_dir: "{{ client_configs_base_dir }}/{{ client_name }}"
+          delegate_to: localhost
+
+        - name: Rotate cert and upload archive
+          include_role:
+            name: vpn_cert
+            tasks_from: rotate
       loop: "{{ client_names }}"
       loop_control:
         loop_var: client_name
