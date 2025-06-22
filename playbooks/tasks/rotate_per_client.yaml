@@ -1,0 +1,10 @@
+# tasks/rotate_per_client.yaml
+- name: Set client_config_dir for {{ client_name }}
+  set_fact:
+    client_config_dir: "{{ client_configs_base_dir }}/{{ client_name }}"
+  delegate_to: localhost
+
+- name: Rotate cert and upload archive for {{ client_name }}
+  include_role:
+    name: vpn_cert
+    tasks_from: rotate

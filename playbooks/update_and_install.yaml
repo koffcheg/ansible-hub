@@ -15,17 +15,8 @@
     - import_tasks: ../tasks/load_controller_vars.yaml
 
   tasks:
-    - name: Rotate cert and upload archive
-      block:
-        - name: Set client_config_dir for {{ client_name }}
-          set_fact:
-            client_config_dir: "{{ client_configs_base_dir }}/{{ client_name }}"
-          delegate_to: localhost
-
-        - name: Rotate cert and upload archive
-          include_role:
-            name: vpn_cert
-            tasks_from: rotate
+    - name: Rotate cert and upload archive per client
+      include_tasks: tasks/rotate_per_client.yaml
       loop: "{{ client_names }}"
       loop_control:
         loop_var: client_name

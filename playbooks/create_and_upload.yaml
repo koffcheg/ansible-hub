@@ -25,7 +25,7 @@
 
   tasks:
     - name: Set client_static_ip and include onboarding logic
-      include_tasks: tasks/client_flow.yaml
+      include_tasks: tasks/create_per_client.yaml
       loop: "{{ client_names }}"
       loop_control:
         loop_var: client_name

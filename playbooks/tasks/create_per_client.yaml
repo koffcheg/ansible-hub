@@ -1,4 +1,4 @@
-# playbooks/tasks/client_flow.yaml
+# playbooks/tasks/create_per_client.yaml
 - name: Compute client_config_dir
   set_fact:
     client_config_dir: "{{ client_configs_base_dir }}/{{ client_name }}"
