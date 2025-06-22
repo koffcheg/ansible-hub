@@ -29,7 +29,9 @@
   template:
     src: base_client.conf.j2
     dest: "{{ client_config_dir }}/{{ client_name }}.ovpn"
-
+  delegate_to: localhost
+  run_once: false
+  
 - name: Create archive
   archive:
     path:
