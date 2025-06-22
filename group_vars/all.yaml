@@ -1,5 +1,5 @@
 ---
-# host_vars/localhost.yaml
+# group_vars/all.yaml
 
 gcp_project_id: twitter-backup-371709
 gcp_secrets_prefix: vpn-client-
