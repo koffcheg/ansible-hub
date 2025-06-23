@@ -34,6 +34,13 @@
     executable: /bin/bash
   delegate_to: localhost
 
+- name: Ensure factory client config directory exists
+  file:
+    path: "{{ factory_client_config_dir }}/{{ client_name }}/"
+    state: directory
+    mode: '0755'
+  delegate_to: localhost
+
 - name: Extract archive to client config folder
   unarchive:
     src: "{{ archive_path }}"
