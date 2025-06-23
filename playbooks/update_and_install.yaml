@@ -12,7 +12,7 @@
           - client_names is defined
           - client_names | length > 0
 
-    - name: Load controller vars once
+    - name: Load controller variables
       import_tasks: ../tasks/load_controller_vars.yaml
 
   tasks:
@@ -23,14 +23,19 @@
         loop_var: client_name
 
 - name: Install client config (remote)
-  hosts: "{{ client_names }}"
+  hosts: clients
   gather_facts: false
   become: true
 
   pre_tasks:
-    - name: Load controller vars once (again for delegated localhost)
+    - name: Skip unless this host is targeted
+      meta: end_host
+      when: inventory_hostname not in client_names
+
+    - name: Load controller vars again (for delegated tasks)
       import_tasks: ../tasks/load_controller_vars.yaml
-    - name: Fallback to inventory_hostname as client_name
+
+    - name: Ensure client_name fallback
       set_fact:
         client_name: "{{ inventory_hostname }}"
       when: client_name is not defined
