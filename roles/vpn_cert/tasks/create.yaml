@@ -35,12 +35,12 @@
     - { src: "{{ easy_rsa_dir }}/pki/ca.crt", dest: "ca.crt" }
     - { src: "{{ ta_key_path }}", dest: "ta.key" }
 
-- name: Template client .ovpn config
+- name: Template client .conf config
   delegate_to: localhost
   become: false
   template:
     src: base_client.conf.j2
-    dest: "{{ client_config_dir }}/{{ client_name }}.conf"  # renamed for systemd usage
+    dest: "{{ client_config_dir }}/{{ client_name }}.conf"
 
 - name: Copy dns-hooks.sh from role files
   delegate_to: localhost
@@ -48,6 +48,13 @@
     src: dns-hooks.sh
     dest: "{{ client_config_dir }}/dns-hooks.sh"
     mode: '0755'
+
+- name: Remove previous archive if it exists
+  delegate_to: localhost
+  file:
+    path: "{{ client_config_dir }}/{{ client_name }}.tar.gz"
+    state: absent
+  ignore_errors: true
 
 - name: Create client archive
   delegate_to: localhost
@@ -62,6 +69,16 @@
       - "{{ client_config_dir }}/dns-hooks.sh"
     dest: "{{ client_config_dir }}/{{ client_name }}.tar.gz"
     format: gz
+
+- name: Check archive format after creation
+  delegate_to: localhost
+  shell: file "{{ client_config_dir }}/{{ client_name }}.tar.gz"
+  register: archive_type
+
+- name: Fail if archive is not gzip compressed
+  fail:
+    msg: "Archive format is invalid: {{ archive_type.stdout }}"
+  when: "'gzip compressed data' not in archive_type.stdout"
 
 - name: Save client metadata
   delegate_to: localhost
