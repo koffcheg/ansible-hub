@@ -1,9 +1,10 @@
 ---
 # group_vars/all.yaml
-
+gcp_service_account: ansible-secret-manager@twitter-backup-371709.iam.gserviceaccount.com
 gcp_credentials_file: "/home/koffcheg/twitter-backup-371709-6ea59b4f2f20.json"
 gcp_project_id: twitter-backup-371709
 gcp_secrets_prefix: vpn-client-
+
 client_configs_base_dir: "/home/{{ lookup('env', 'USER') | default('ansible') }}/client-configs"
 client_meta_dir: "/home/{{ lookup('env', 'USER') | default('ansible') }}/client-meta"
 client_archives_dir: "{{ client_configs_base_dir }}/archives"
