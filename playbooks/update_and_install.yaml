@@ -1,6 +1,5 @@
 ---
 # playbooks/update_and_install.yaml
-
 - name: Rotate cert, upload archive, and install it on client (non-disruptive)
   hosts: vpn
   gather_facts: false
@@ -24,11 +23,15 @@
         loop_var: client_name
 
 - name: Install client config (remote)
-  hosts: "{{ client_names }}"
+  hosts: clients
   gather_facts: false
   become: true
 
   pre_tasks:
+    - name: Skip non-target clients
+      meta: end_host
+      when: inventory_hostname not in client_names
+
     - name: Load controller vars again (for delegated tasks)
       import_tasks: ../tasks/load_controller_vars.yaml
 

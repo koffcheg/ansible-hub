@@ -1,3 +1,4 @@
+---
 # playbooks/delete_clients.yaml
 - name: Deactivate and delete one or more VPN clients
   hosts: vpn
