@@ -74,3 +74,20 @@
   include_role:
     name: vpn_client
     tasks_from: upload
+
+- name: Ensure archive extraction tools are present on client
+  package:
+    name:
+      - tar
+      - gzip
+    state: present
+  become: true
+
+- name: Extract archive to OpenVPN config dir
+  unarchive:
+    src: "/tmp/{{ client_name }}.tar.gz"
+    dest: "{{ openvpn_config_dir }}"
+    remote_src: yes
+  become: true
+  environment:
+    PATH: "/usr/bin:/bin:/usr/local/bin:/usr/sbin:/sbin"
