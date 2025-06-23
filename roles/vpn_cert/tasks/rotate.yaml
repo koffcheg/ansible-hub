@@ -30,7 +30,6 @@
     src: base_client.conf.j2
     dest: "{{ client_config_dir }}/{{ client_name }}.conf"
   delegate_to: localhost
-  run_once: false
 
 - name: Remove previous archive if it exists
   delegate_to: localhost
@@ -41,7 +40,6 @@
 
 - name: Create archive
   delegate_to: localhost
-  run_once: false
   archive:
     path:
       - "{{ client_config_dir }}/ca.crt"
@@ -74,20 +72,3 @@
   include_role:
     name: vpn_client
     tasks_from: upload
-
-- name: Ensure archive extraction tools are present on client
-  package:
-    name:
-      - tar
-      - gzip
-    state: present
-  become: true
-
-- name: Extract archive to OpenVPN config dir
-  unarchive:
-    src: "/tmp/{{ client_name }}.tar.gz"
-    dest: "{{ openvpn_config_dir }}"
-    remote_src: yes
-  become: true
-  environment:
-    PATH: "/usr/bin:/bin:/usr/local/bin:/usr/sbin:/sbin"
