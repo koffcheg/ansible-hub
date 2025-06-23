@@ -30,6 +30,10 @@
   pre_tasks:
     - name: Load controller vars once (again for delegated localhost)
       import_tasks: ../tasks/load_controller_vars.yaml
+    - name: Fallback to inventory_hostname as client_name
+      set_fact:
+        client_name: "{{ inventory_hostname }}"
+      when: client_name is not defined
 
   tasks:
     - name: Read client metadata
