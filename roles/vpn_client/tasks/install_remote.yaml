@@ -35,8 +35,7 @@
   copy:
     src: "{{ archive_path }}"
     dest: "/tmp/{{ client_name }}.tar.gz"
-  delegate_to: localhost
-  run_once: true
+    mode: '0644'
 
 - name: Ensure OpenVPN client directory exists
   file:
