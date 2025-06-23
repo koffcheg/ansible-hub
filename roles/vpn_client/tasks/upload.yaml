@@ -30,12 +30,10 @@
   delegate_to: localhost
   become: false
   shell: |
-    GOOGLE_APPLICATION_CREDENTIALS="{{ gcp_credentials_file }}" \
     gcloud secrets create {{ gcp_secrets_prefix }}{{ client_name }} \
       --data-file="{{ client_config_dir }}/{{ client_name }}.tar.gz" \
       --replication-policy="automatic" \
       --project="{{ gcp_project_id }}" || \
-    GOOGLE_APPLICATION_CREDENTIALS="{{ gcp_credentials_file }}" \
     gcloud secrets versions add {{ gcp_secrets_prefix }}{{ client_name }} \
       --data-file="{{ client_config_dir }}/{{ client_name }}.tar.gz" \
       --project="{{ gcp_project_id }}"
@@ -44,7 +42,8 @@
   delay: 5
   args:
     executable: /bin/bash
-
+  environment:
+    GOOGLE_APPLICATION_CREDENTIALS: "{{ google_application_credentials }}"
 
 - name: Confirm upload complete
   become: false

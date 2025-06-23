@@ -10,9 +10,7 @@
 - name: Delete GCP Secret (if exists)
   delegate_to: localhost
   shell: |
-    if GOOGLE_APPLICATION_CREDENTIALS="{{ gcp_credentials_file }}" \
-       gcloud secrets describe {{ gcp_secrets_prefix }}{{ client_name }} --project={{ gcp_project_id }} 2>/dev/null; then
-      GOOGLE_APPLICATION_CREDENTIALS="{{ gcp_credentials_file }}" \
+    if gcloud secrets describe {{ gcp_secrets_prefix }}{{ client_name }} --project={{ gcp_project_id }} 2>/dev/null; then
       gcloud secrets delete {{ gcp_secrets_prefix }}{{ client_name }} --quiet --project={{ gcp_project_id }}
     else
       echo "Secret not found: {{ gcp_secrets_prefix }}{{ client_name }}"
@@ -21,6 +19,8 @@
   changed_when: "'Deleted secret' in delete_gcp_secret_result.stdout"
   args:
     executable: /bin/bash
+  environment:
+    GOOGLE_APPLICATION_CREDENTIALS: "{{ google_application_credentials }}"  
 
 - name: Delete local client config dir on controller
   delegate_to: localhost
