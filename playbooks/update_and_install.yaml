@@ -26,6 +26,9 @@
   gather_facts: false
   become: true
 
+  pre_tasks:
+    - import_tasks: ../tasks/load_controller_vars.yaml
+    
   tasks:
     - name: Read client metadata
       include_role:
