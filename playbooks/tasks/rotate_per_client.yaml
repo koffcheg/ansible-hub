@@ -1,3 +1,4 @@
+---
 # tasks/rotate_per_client.yaml
 - name: Set client_config_dir for {{ client_name }}
   set_fact:
