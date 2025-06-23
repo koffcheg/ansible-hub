@@ -31,6 +31,12 @@
         mode: '0644'
         remote_src: yes
 
+    - name: Ensure output_dir exists with proper permissions
+      file:
+        path: "{{ output_dir }}"
+        state: directory
+        mode: '0755'
+
     - name: Render install.sh into factory config dir
       template:
         src: install.sh.j2
