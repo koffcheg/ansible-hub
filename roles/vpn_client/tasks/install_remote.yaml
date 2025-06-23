@@ -25,9 +25,23 @@
   shell: |
     gcloud secrets versions access latest \
       --secret="{{ gcp_secrets_prefix }}{{ client_name }}" \
-      --project="{{ gcp_project_id }}" | base64 -d > {{ archive_path }}
+      --project="{{ gcp_project_id }}" > {{ archive_path }}
   args:
     executable: /bin/bash
+  delegate_to: localhost
+  run_once: true
+
+- name: Stat downloaded archive
+  stat:
+    path: "{{ archive_path }}"
+  delegate_to: localhost
+  run_once: true
+  register: archive_stat
+
+- name: Fail if archive is empty
+  fail:
+    msg: "Downloaded archive for {{ client_name }} is empty. Likely corrupt or missing from GCP."
+  when: archive_stat.stat.size == 0
   delegate_to: localhost
   run_once: true
 
