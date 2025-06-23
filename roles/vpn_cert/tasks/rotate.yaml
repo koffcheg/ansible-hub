@@ -33,6 +33,8 @@
   run_once: false
   
 - name: Create archive
+  delegate_to: localhost
+  run_once: false
   archive:
     path:
       - "{{ client_config_dir }}/ca.crt"
