@@ -9,7 +9,7 @@
   when: client_meta.pending_revoke | default(false)
   block:
     - name: Revoke cert
-      command: ./easyrsa revoke {{ inventory_hostname }}
+      command: ./easyrsa revoke {{ client_name  }}
       args:
         chdir: "{{ easy_rsa_dir }}"
 
@@ -27,7 +27,7 @@
     - name: Clear pending_revoke flag
       delegate_to: localhost
       copy:
-        dest: "{{ client_meta_dir }}/{{ inventory_hostname }}.yaml"
+        dest: "{{ client_meta_dir }}/{{ client_name  }}.yaml"
         content: |
           version: {{ client_meta.version }}
           latest: {{ client_meta.latest }}
