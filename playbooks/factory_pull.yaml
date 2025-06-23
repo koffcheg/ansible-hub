@@ -5,7 +5,7 @@
   gather_facts: false
 
   vars:
-    output_dir: "/factory_output/{{ client_name }}"
+    output_dir: "{{ lookup('env', 'HOME') }}/factory_output/{{ client_name }}"
 
   pre_tasks:
     - name: Ensure client_name is provided
