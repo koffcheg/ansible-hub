@@ -7,9 +7,17 @@
   delegate_to: localhost
   run_once: true
 
+- name: Ensure archive dir exists on controller
+  file:
+    path: "{{ client_archives_dir }}"
+    state: directory
+    mode: '0755'
+  delegate_to: localhost
+  run_once: true
+
 - name: Set download path on controller
   set_fact:
-    archive_path: "/tmp/{{ client_name }}.tar.gz"
+    archive_path: "{{ client_archives_dir }}/{{ client_name }}.tar.gz"
   delegate_to: localhost
   run_once: true
 
