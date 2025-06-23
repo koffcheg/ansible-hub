@@ -1,9 +1,10 @@
 ---
-# roles/vpn_client/tasks/install_from_secret.yaml
+# roles/vpn_client/tasks/install_remote.yaml
 - name: Ensure gcloud CLI is available
   command: which gcloud
   register: gcloud_check
   failed_when: gcloud_check.rc != 0
+  delegate_to: localhost
 
 - name: Create temp directory for download
   tempfile:

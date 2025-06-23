@@ -28,7 +28,7 @@
 
   pre_tasks:
     - import_tasks: ../tasks/load_controller_vars.yaml
-    
+
   tasks:
     - name: Read client metadata
       include_role:
@@ -41,7 +41,7 @@
         - name: Download and extract archive from secret
           include_role:
             name: vpn_client
-            tasks_from: install_from_secret
+            tasks_from: install_remote
 
         - name: Mark installed version
           include_role:
