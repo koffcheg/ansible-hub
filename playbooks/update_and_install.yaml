@@ -1,12 +1,12 @@
 ---
 # playbooks/update_and_install.yaml
-- name: Rotate cert, upload archive, and install it on client (non-disruptive)
+- name: Rotate and upload VPN config for each selected client
   hosts: vpn
   gather_facts: false
   become: true
 
   pre_tasks:
-    - name: Ensure client_names is provided
+    - name: Ensure client_names is passed
       assert:
         that:
           - client_names is defined
@@ -15,6 +15,12 @@
     - name: Load controller variables
       import_tasks: ../tasks/load_controller_vars.yaml
 
+    - name: Define dynamic host group for installation
+      add_host:
+        name: "{{ item }}"
+        groups: selected_clients
+      loop: "{{ client_names }}"
+
   tasks:
     - name: Rotate cert and upload archive per client
       include_tasks: tasks/rotate_per_client.yaml
@@ -22,23 +28,23 @@
       loop_control:
         loop_var: client_name
 
-- name: Install client config (remote)
-  hosts: clients
+
+- name: Install and restart VPN for selected clients
+  hosts: selected_clients
   gather_facts: false
   become: true
 
-  pre_tasks:
-    - name: Skip unless this host is targeted
-      meta: end_host
-      when: inventory_hostname not in client_names
+  vars:
+    ansible_user: kaki
+    ansible_ssh_pass: kaki
 
-    - name: Load controller vars again (for delegated tasks)
+  pre_tasks:
+    - name: Load controller vars again
       import_tasks: ../tasks/load_controller_vars.yaml
 
-    - name: Ensure client_name fallback
+    - name: Set fallback for client_name
       set_fact:
         client_name: "{{ inventory_hostname }}"
-      when: client_name is not defined
 
   tasks:
     - name: Read client metadata
@@ -46,20 +52,20 @@
         name: vpn_client
         tasks_from: read_meta
 
-    - name: Check if reinstall is required
+    - name: Install VPN config and restart if needed
       when: not client_meta.installed or client_meta.version != client_meta.latest
       block:
-        - name: Download and extract archive from secret
+        - name: Install from secret
           include_role:
             name: vpn_client
             tasks_from: install_remote
 
-        - name: Mark installed version
+        - name: Mark install complete
           include_role:
             name: vpn_client
             tasks_from: mark_installed
 
-        - name: Revoke old cert if pending
+        - name: Revoke pending cert if needed
           include_role:
             name: vpn_cert
             tasks_from: revoke_pending
