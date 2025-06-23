@@ -1,28 +1,54 @@
 ---
 # roles/vpn_client/tasks/download.yaml
-- name: Download VPN config from GCP Secret Manager
-  gcp_secret:
-    name: "{{ gcp_secrets_prefix }}{{ client_name }}"
-    project: "{{ gcp_project_id }}"
+- name: Set archive path
+  set_fact:
+    archive_path: "/tmp/{{ client_name }}.tar.gz"
+
+- name: Download base64 archive from GCP Secret Manager
+  shell: |
+    gcloud secrets versions access latest \
+      --secret="vpn-client-{{ client_name }}" \
+      --project="{{ gcp_project_id }}" > "{{ archive_path }}.b64"
+  args:
+    executable: /bin/bash
+  register: gcloud_result
+  failed_when: gcloud_result.rc != 0
   delegate_to: localhost
-  register: client_secret
 
-- name: Fail if secret content missing
+- name: Fail if downloaded base64 file is empty
+  stat:
+    path: "{{ archive_path }}.b64"
+  register: archive_stat
+  delegate_to: localhost
+
+- name: Abort if base64 archive is empty
   fail:
-    msg: "Secret for {{ client_name }} has no content!"
-  when: client_secret.content is not defined
+    msg: "Downloaded base64 archive is empty."
+  when: archive_stat.stat.size == 0
+  delegate_to: localhost
 
-- name: Decode client archive and save to temp path
-  copy:
-    content: "{{ client_secret.content | b64decode }}"
-    dest: "/tmp/{{ client_name }}.tar.gz"
-    mode: '0600'
+- name: Decode base64 to tar.gz
+  shell: |
+    base64 -d "{{ archive_path }}.b64" > "{{ archive_path }}"
+  args:
+    executable: /bin/bash
+  delegate_to: localhost
 
 - name: Extract archive to client config folder
   unarchive:
-    src: "/tmp/{{ client_name }}.tar.gz"
-    dest: "{{ client_config_base_dir }}/{{ client_name }}/"
-    remote_src: yes
+    src: "{{ archive_path }}"
+    dest: "{{ factory_client_config_dir }}/{{ client_name }}/"
+    remote_src: no
+  delegate_to: localhost
+
+- name: Cleanup
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ archive_path }}"
+    - "{{ archive_path }}.b64"
+  delegate_to: localhost
 
 - debug:
     msg: "Pulled and extracted config for {{ client_name }}"
