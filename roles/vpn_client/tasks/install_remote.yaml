@@ -7,25 +7,25 @@
   delegate_to: localhost
   run_once: true
 
-- name: Create temp directory on controller
-  tempfile:
-    state: directory
-    suffix: vpnconfig
-  register: temp_dir
+- name: Set download path on controller
+  set_fact:
+    archive_path: "/tmp/{{ client_name }}.tar.gz"
   delegate_to: localhost
   run_once: true
 
-- name: Download VPN archive from GCP Secret Manager
+- name: Download VPN archive from GCP Secret Manager on controller
   shell: |
     gcloud secrets versions access latest \
       --secret="{{ gcp_secrets_prefix }}{{ client_name }}" \
-      --project="{{ gcp_project_id }}" | base64 -d > {{ temp_dir.path }}/{{ client_name }}.tar.gz
+      --project="{{ gcp_project_id }}" | base64 -d > {{ archive_path }}
+  args:
+    executable: /bin/bash
   delegate_to: localhost
   run_once: true
 
 - name: Copy archive from controller to remote client
   copy:
-    src: "{{ temp_dir.path }}/{{ client_name }}.tar.gz"
+    src: "{{ archive_path }}"
     dest: "/tmp/{{ client_name }}.tar.gz"
   delegate_to: localhost
   run_once: true
@@ -54,9 +54,7 @@
   file:
     path: "/etc/openvpn/client/dns-hooks.sh"
     mode: '0755'
-  when: ansible_facts['distribution'] != "Alpine" and
-        ansible_facts['os_family'] != "Darwin" and
-        ansible_facts['os_family'] != "Windows"
+  when: ansible_facts['distribution'] != "Alpine"
   ignore_errors: true
 
 - name: Restart OpenVPN client service
@@ -65,7 +63,9 @@
     enabled: yes
     state: restarted
 
-- name: Clean up VPN archive from /tmp
+- name: Clean up archive on controller
   file:
-    path: "/tmp/{{ client_name }}.tar.gz"
+    path: "{{ archive_path }}"
     state: absent
+  delegate_to: localhost
+  run_once: true
