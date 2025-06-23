@@ -1,6 +1,5 @@
 ---
 # roles/vpn_client/tasks/install_remote.yaml
-
 - name: Ensure gcloud CLI is available on controller
   command: which gcloud
   register: gcloud_check
