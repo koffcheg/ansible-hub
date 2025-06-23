@@ -23,15 +23,15 @@
 
 - name: Download raw archive from GCP Secret Manager
   shell: |
+    GOOGLE_APPLICATION_CREDENTIALS="{{ gcp_credentials_file }}" \
     gcloud secrets versions access latest \
-      --secret="{{ gcp_secrets_prefix }}{{ client_name }}" \
-      --project="{{ gcp_project_id }}" > "{{ archive_path }}"
+      --secret="vpn-client-{{ client_name }}" \
+      --project="{{ gcp_project }}" > "{{ archive_path }}"
   args:
     executable: /bin/bash
-  register: archive_dl
-  failed_when: archive_dl.rc != 0
+  register: gcloud_result
+  failed_when: gcloud_result.rc != 0
   delegate_to: localhost
-  run_once: true
 
 - name: Stat downloaded archive
   stat:
