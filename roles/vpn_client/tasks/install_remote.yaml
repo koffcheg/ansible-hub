@@ -100,11 +100,15 @@
     src: "/etc/openvpn/client/{{ client_name }}.conf"
     dest: "/etc/openvpn/client/{{ client_name }}.conf"
 
+- name: Secure private key file
+  file:
+    path: "/etc/openvpn/client/{{ client_name }}.key"
+    mode: '0600'
+
 - name: Make dns-hooks.sh executable if present
   file:
     path: "/etc/openvpn/client/dns-hooks.sh"
     mode: '0755'
-  when: ansible_facts['distribution'] != "Alpine"
   ignore_errors: true
 
 - name: Restart OpenVPN client service
