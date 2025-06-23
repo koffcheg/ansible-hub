@@ -33,7 +33,7 @@
 
     - name: Render install.sh into factory config dir
       template:
-        src: "../../roles/vpn_client/templates/install.sh.j2"
+        src: install.sh.j2
         dest: "{{ output_dir }}/install.sh"
         mode: '0755'
 
