@@ -22,13 +22,13 @@
       loop_control:
         loop_var: client_name
 
-- name: Install client config (remote)
+- name: Install client config remotely
   hosts: "{{ client_names }}"
   gather_facts: false
   become: true
 
   pre_tasks:
-    - name: Load controller vars again (for delegated tasks)
+    - name: Load controller vars for delegated localhost tasks
       import_tasks: ../tasks/load_controller_vars.yaml
 
     - name: Ensure client_name fallback
@@ -42,20 +42,20 @@
         name: vpn_client
         tasks_from: read_meta
 
-    - name: Check if reinstall is required
+    - name: Install updated client archive if needed
       when: not client_meta.installed or client_meta.version != client_meta.latest
       block:
-        - name: Download and extract archive from secret
+        - name: Download and install VPN config
           include_role:
             name: vpn_client
             tasks_from: install_remote
 
-        - name: Mark installed version
+        - name: Mark installed version in metadata
           include_role:
             name: vpn_client
             tasks_from: mark_installed
 
-        - name: Revoke old cert if pending
+        - name: Revoke old certificate if marked pending
           include_role:
             name: vpn_cert
             tasks_from: revoke_pending
