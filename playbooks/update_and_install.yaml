@@ -23,11 +23,15 @@
         loop_var: client_name
 
 - name: Install client config remotely
-  hosts: "{{ client_names }}"
+  hosts: clients
   gather_facts: false
   become: true
 
   pre_tasks:
+    - name: Skip hosts not in client_names
+      meta: end_host
+      when: inventory_hostname not in client_names
+
     - name: Load controller vars for delegated localhost tasks
       import_tasks: ../tasks/load_controller_vars.yaml
 
