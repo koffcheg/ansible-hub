@@ -21,11 +21,12 @@
   delegate_to: localhost
   run_once: true
 
-- name: Download VPN archive from GCP Secret Manager on controller
+- name: Download VPN archive from GCP Secret Manager on controller (force SA credentials)
   shell: |
+    GOOGLE_APPLICATION_CREDENTIALS="{{ gcp_credentials_file }}" \
     gcloud secrets versions access latest \
       --secret="{{ gcp_secrets_prefix }}{{ client_name }}" \
-      --project="{{ gcp_project_id }}" > {{ archive_path }}
+      --project="{{ gcp_project_id }}" | base64 -d > {{ archive_path }}
   args:
     executable: /bin/bash
   delegate_to: localhost

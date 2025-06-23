@@ -1,6 +1,7 @@
 ---
 # group_vars/all.yaml
 
+gcp_credentials_file: "/home/koffcheg/twitter-backup-371709-6ea59b4f2f20.json"
 gcp_project_id: twitter-backup-371709
 gcp_secrets_prefix: vpn-client-
 client_configs_base_dir: "/home/{{ lookup('env', 'USER') | default('ansible') }}/client-configs"
