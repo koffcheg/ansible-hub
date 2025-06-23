@@ -8,4 +8,4 @@
       version: {{ client_meta.latest }}
       latest: {{ client_meta.latest }}
       installed: true
-      pending_revoke: true
+      pending_revoke: false

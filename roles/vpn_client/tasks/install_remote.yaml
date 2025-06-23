@@ -23,17 +23,13 @@
 
 - name: Download and decode VPN archive from GCP Secret Manager on controller
   shell: |
-    tmpfile=$(mktemp /tmp/client_XXXXXX.tar.gz)
     gcloud secrets versions access latest \
       --secret="{{ gcp_secrets_prefix }}{{ client_name }}" \
-      --project="{{ gcp_project_id }}" | base64 -d > "$tmpfile"
-    if [ ! -s "$tmpfile" ]; then
-      echo "Downloaded archive is empty!"
-      exit 1
-    fi
-    mv "$tmpfile" "{{ archive_path }}"
+      --project="{{ gcp_project_id }}" | base64 -d > "{{ archive_path }}"
   args:
     executable: /bin/bash
+  register: archive_dl
+  failed_when: archive_dl.rc != 0
   delegate_to: localhost
   run_once: true
 
