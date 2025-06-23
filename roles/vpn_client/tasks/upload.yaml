@@ -7,10 +7,9 @@
   delegate_to: localhost
 
 - name: Check if archive exists on controller
-  delegate_to: localhost
-  become: false
   stat:
     path: "{{ client_config_dir }}/{{ client_name }}.tar.gz"
+  delegate_to: localhost
   register: archive_check
 
 - name: Abort if archive missing
@@ -23,25 +22,28 @@
   delegate_to: localhost
   run_once: true
 
-- name: Upload raw .tar.gz to GCP Secret Manager
+- name: Delete secret if it exists (clean state before upload)
+  shell: |
+    gcloud secrets delete {{ gcp_secrets_prefix }}{{ client_name }} \
+      --quiet --project "{{ gcp_project_id }}" || true
   delegate_to: localhost
-  become: false
+  ignore_errors: true
+
+- name: Create fresh GCP secret
   shell: |
     gcloud secrets create {{ gcp_secrets_prefix }}{{ client_name }} \
-      --data-file="{{ client_config_dir }}/{{ client_name }}.tar.gz" \
       --replication-policy="automatic" \
-      --project="{{ gcp_project_id }}" || \
+      --project="{{ gcp_project_id }}"
+  delegate_to: localhost
+
+- name: Upload archive to GCP Secret Manager
+  shell: |
     gcloud secrets versions add {{ gcp_secrets_prefix }}{{ client_name }} \
       --data-file="{{ client_config_dir }}/{{ client_name }}.tar.gz" \
       --project="{{ gcp_project_id }}"
-  register: gcloud_result
-  retries: 3
-  delay: 5
-  args:
-    executable: /bin/bash
+  delegate_to: localhost
 
 - name: Confirm upload complete
-  become: false
-  delegate_to: localhost
   debug:
     msg: "Uploaded {{ client_name }} archive to GCP Secret Manager ({{ gcp_secrets_prefix }}{{ client_name }})"
+  delegate_to: localhost
