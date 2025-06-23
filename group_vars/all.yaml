@@ -13,3 +13,5 @@ client_archives_dir: "{{ client_configs_base_dir }}/archives"
 easy_rsa_dir: /home/kharkov501/easy-rsa
 ta_key_path: /etc/openvpn/ta.key
 openvpn_config_dir: /etc/openvpn
+
+factory_client_config_dir: /tmp/client_configs

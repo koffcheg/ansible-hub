@@ -1,4 +1,5 @@
 ---
+# roles/vpn_client/tasks/download.yaml
 - name: Download VPN config from GCP Secret Manager
   gcp_secret:
     name: "{{ gcp_secrets_prefix }}{{ client_name }}"

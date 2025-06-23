@@ -1,0 +1,28 @@
+#!/bin/bash
+
+set -e
+
+CONFIG_NAME="{{ client_name }}"
+SRC_DIR="$(dirname "$0")"
+TARGET_DIR="/etc/openvpn/client"
+CONFIG_PATH="${TARGET_DIR}/${CONFIG_NAME}.conf"
+
+echo "[INFO] Installing VPN config for $CONFIG_NAME"
+
+sudo mkdir -p "$TARGET_DIR"
+sudo cp "$SRC_DIR"/*.crt "$TARGET_DIR/"
+sudo cp "$SRC_DIR"/*.key "$TARGET_DIR/"
+sudo cp "$SRC_DIR"/ta.key "$TARGET_DIR/"
+sudo cp "$SRC_DIR"/ca.crt "$TARGET_DIR/"
+sudo cp "$SRC_DIR"/"${CONFIG_NAME}.conf" "$CONFIG_PATH"
+
+if [ -f "$SRC_DIR/dns-hooks.sh" ]; then
+  sudo cp "$SRC_DIR/dns-hooks.sh" "$TARGET_DIR/"
+  sudo chmod +x "$TARGET_DIR/dns-hooks.sh"
+fi
+
+echo "[INFO] Enabling and starting OpenVPN service..."
+sudo systemctl enable "openvpn-client@${CONFIG_NAME}.service"
+sudo systemctl restart "openvpn-client@${CONFIG_NAME}.service"
+
+echo "[INFO] VPN setup complete!"
