@@ -5,6 +5,7 @@
   register: gcloud_check
   failed_when: gcloud_check.rc != 0
   delegate_to: localhost
+  run_once: true
 
 - name: Create temp directory on controller
   tempfile:
@@ -12,6 +13,7 @@
     suffix: vpnconfig
   register: temp_dir
   delegate_to: localhost
+  run_once: true
 
 - name: Download VPN archive from GCP Secret Manager
   shell: |
@@ -19,11 +21,14 @@
       --secret="{{ gcp_secrets_prefix }}{{ client_name }}" \
       --project="{{ gcp_project_id }}" | base64 -d > {{ temp_dir.path }}/{{ client_name }}.tar.gz
   delegate_to: localhost
+  run_once: true
 
 - name: Copy archive from controller to remote client
   copy:
     src: "{{ temp_dir.path }}/{{ client_name }}.tar.gz"
     dest: "/tmp/{{ client_name }}.tar.gz"
+  delegate_to: localhost
+  run_once: true
 
 - name: Ensure OpenVPN client directory exists
   file:
@@ -49,10 +54,18 @@
   file:
     path: "/etc/openvpn/client/dns-hooks.sh"
     mode: '0755'
-  when: ansible_facts['distribution'] != "Alpine"
+  when: ansible_facts['distribution'] != "Alpine" and
+        ansible_facts['os_family'] != "Darwin" and
+        ansible_facts['os_family'] != "Windows"
+  ignore_errors: true
 
 - name: Restart OpenVPN client service
   systemd:
     name: "openvpn-client@{{ client_name }}.service"
     enabled: yes
     state: restarted
+
+- name: Clean up VPN archive from /tmp
+  file:
+    path: "/tmp/{{ client_name }}.tar.gz"
+    state: absent
