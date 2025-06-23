@@ -1,71 +1,68 @@
 ---
 # roles/vpn_client/tasks/install_remote.yaml
+# 1. Ensure gcloud CLI is available on the controller
 - name: Ensure gcloud CLI is available
   command: which gcloud
   register: gcloud_check
   failed_when: gcloud_check.rc != 0
   delegate_to: localhost
 
-- name: Create temp directory for download
+# 2. Create temp dir on controller to store archive
+- name: Create temp directory on controller for VPN archive
   tempfile:
     state: directory
     suffix: vpnconfig
   register: temp_dir
   delegate_to: localhost
 
+# 3. Download base64-encoded VPN archive from GCP
 - name: Download VPN archive from GCP Secret Manager
   shell: |
-    set -e
     gcloud secrets versions access latest \
       --secret="{{ gcp_secrets_prefix }}{{ client_name }}" \
       --project="{{ gcp_project_id }}" | base64 -d > {{ temp_dir.path }}/{{ client_name }}.tar.gz
   delegate_to: localhost
 
-- name: Copy archive to remote client
+# 4. Copy archive from controller to remote client
+- name: Copy archive from controller to remote client
   copy:
     src: "{{ temp_dir.path }}/{{ client_name }}.tar.gz"
     dest: "/tmp/{{ client_name }}.tar.gz"
   delegate_to: localhost
 
+# 5. Ensure OpenVPN client directory exists on remote
 - name: Ensure target OpenVPN dir exists
   file:
-    path: "{{ vpn_client_conf_dir }}"
+    path: "/etc/openvpn/client"
     state: directory
     owner: root
     group: root
     mode: '0755'
 
-- name: Extract archive into OpenVPN dir
+# 6. Extract archive on remote
+- name: Extract archive into /etc/openvpn/client/
   unarchive:
     src: "/tmp/{{ client_name }}.tar.gz"
-    dest: "{{ vpn_client_conf_dir }}"
+    dest: "/etc/openvpn/client"
     remote_src: yes
 
+# 7. Ensure config is at expected path (redundant safety copy)
 - name: Ensure config is at expected path
   copy:
     remote_src: yes
-    src: "{{ vpn_client_conf_dir }}/{{ client_name }}.conf"
-    dest: "{{ vpn_client_conf_dir }}/{{ client_name }}.conf"
+    src: "/etc/openvpn/client/{{ client_name }}.conf"
+    dest: "/etc/openvpn/client/{{ client_name }}.conf"
 
+# 8. Make DNS hooks script executable (if exists)
 - name: Make dns-hooks.sh executable (optional)
   file:
-    path: "{{ vpn_client_conf_dir }}/dns-hooks.sh"
+    path: "/etc/openvpn/client/dns-hooks.sh"
     mode: '0755'
   when: ansible_facts['distribution'] != "Alpine"
 
+# 9. Restart OpenVPN client service
 - name: Restart OpenVPN client service
   systemd:
     name: "openvpn-client@{{ client_name }}.service"
     enabled: yes
     state: restarted
-
-- name: Remove local temp dir
-  file:
-    path: "{{ temp_dir.path }}"
-    state: absent
-  delegate_to: localhost
-
-- name: Remove remote temp archive
-  file:
-    path: "/tmp/{{ client_name }}.tar.gz"
-    state: absent
