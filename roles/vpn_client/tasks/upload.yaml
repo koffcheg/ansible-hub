@@ -26,22 +26,16 @@
   failed_when: gcloud_path_check.rc != 0
   changed_when: false
 
-- name: Encode archive to base64
-  delegate_to: localhost
-  become: false
-  shell: |
-    base64 "{{ client_config_dir }}/{{ client_name }}.tar.gz" > "{{ client_config_dir }}/{{ client_name }}.b64"
-
-- name: Upload to GCP Secret Manager using gcloud CLI (base64)
+- name: Upload raw .tar.gz to GCP Secret Manager
   delegate_to: localhost
   become: false
   shell: |
     gcloud secrets create {{ gcp_secrets_prefix }}{{ client_name }} \
-      --data-file="{{ client_config_dir }}/{{ client_name }}.b64" \
+      --data-file="{{ client_config_dir }}/{{ client_name }}.tar.gz" \
       --replication-policy="automatic" \
       --project="{{ gcp_project_id }}" || \
     gcloud secrets versions add {{ gcp_secrets_prefix }}{{ client_name }} \
-      --data-file="{{ client_config_dir }}/{{ client_name }}.b64" \
+      --data-file="{{ client_config_dir }}/{{ client_name }}.tar.gz" \
       --project="{{ gcp_project_id }}"
   register: gcloud_result
   retries: 3

@@ -21,11 +21,11 @@
   delegate_to: localhost
   run_once: true
 
-- name: Download and decode VPN archive from GCP Secret Manager on controller
+- name: Download raw archive from GCP Secret Manager
   shell: |
     gcloud secrets versions access latest \
       --secret="{{ gcp_secrets_prefix }}{{ client_name }}" \
-      --project="{{ gcp_project_id }}" | base64 -d > "{{ archive_path }}"
+      --project="{{ gcp_project_id }}" > "{{ archive_path }}"
   args:
     executable: /bin/bash
   register: archive_dl
