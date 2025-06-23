@@ -1,3 +1,5 @@
+---
+# roles/vpn_client/tasks/install_remote.yaml
 - name: Ensure archive extraction tools are present
   package:
     name:
@@ -19,34 +21,56 @@
   delegate_to: localhost
   run_once: true
 
-- name: Set download path on controller
+- name: Set archive paths on controller
   set_fact:
+    archive_b64_path: "{{ client_archives_dir }}/{{ client_name }}.b64"
     archive_path: "{{ client_archives_dir }}/{{ client_name }}.tar.gz"
   delegate_to: localhost
   run_once: true
 
-- name: Download raw archive from GCP Secret Manager
+- name: Download base64-encoded archive from GCP Secret Manager
   shell: |
     gcloud secrets versions access latest \
       --secret="vpn-client-{{ client_name }}" \
-      --project="{{ gcp_project_id }}" > "{{ archive_path }}"
+      --project="{{ gcp_project_id }}" > "{{ archive_b64_path }}"
   args:
     executable: /bin/bash
   register: gcloud_result
   failed_when: gcloud_result.rc != 0
   delegate_to: localhost
 
-- name: Stat downloaded archive
+- name: Fail if downloaded base64 file is empty
   stat:
-    path: "{{ archive_path }}"
-  register: archive_check
+    path: "{{ archive_b64_path }}"
+  register: b64_check
   delegate_to: localhost
   run_once: true
 
-- name: Fail if archive is empty
+- name: Abort if base64 archive is empty
   fail:
-    msg: "Downloaded archive for {{ client_name }} is empty. Likely corrupt or missing from GCP."
-  when: archive_check.stat.size == 0
+    msg: "Downloaded base64 archive for {{ client_name }} is empty."
+  when: b64_check.stat.size == 0
+  delegate_to: localhost
+  run_once: true
+
+- name: Decode base64 archive to .tar.gz
+  shell: |
+    base64 -d "{{ archive_b64_path }}" > "{{ archive_path }}"
+  args:
+    executable: /bin/bash
+  delegate_to: localhost
+  run_once: true
+
+- name: Verify decoded archive is gzip
+  shell: file "{{ archive_path }}"
+  register: archive_type
+  delegate_to: localhost
+  run_once: true
+
+- name: Fail if decoded archive is not gzip
+  fail:
+    msg: "Decoded archive format is invalid: {{ archive_type.stdout }}"
+  when: "'gzip compressed data' not in archive_type.stdout"
   delegate_to: localhost
   run_once: true
 
@@ -94,9 +118,16 @@
     path: "/tmp/{{ client_name }}.tar.gz"
     state: absent
 
-- name: Clean up archive on controller
+- name: Clean up decoded archive on controller
   file:
     path: "{{ archive_path }}"
+    state: absent
+  delegate_to: localhost
+  run_once: true
+
+- name: Clean up base64 archive on controller
+  file:
+    path: "{{ archive_b64_path }}"
     state: absent
   delegate_to: localhost
   run_once: true
