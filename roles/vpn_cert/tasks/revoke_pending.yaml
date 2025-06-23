@@ -27,7 +27,7 @@
     - name: Clear pending_revoke flag
       delegate_to: localhost
       copy:
-        dest: "{{ client_meta_dir }}/{{ client_name  }}.yaml"
+        dest: "{{ client_meta_dir }}/{{ client_name }}.yaml"
         content: |
           version: {{ client_meta.version }}
           latest: {{ client_meta.latest }}
