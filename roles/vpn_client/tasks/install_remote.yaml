@@ -11,36 +11,45 @@
     state: directory
     suffix: vpnconfig
   register: temp_dir
+  delegate_to: localhost
+
+- name: Download VPN archive from GCP Secret Manager
+  shell: |
+    set -e
+    gcloud secrets versions access latest \
+      --secret="{{ gcp_secrets_prefix }}{{ client_name }}" \
+      --project="{{ gcp_project_id }}" | base64 -d > {{ temp_dir.path }}/{{ client_name }}.tar.gz
+  delegate_to: localhost
+
+- name: Copy archive to remote client
+  copy:
+    src: "{{ temp_dir.path }}/{{ client_name }}.tar.gz"
+    dest: "/tmp/{{ client_name }}.tar.gz"
+  delegate_to: localhost
 
 - name: Ensure target OpenVPN dir exists
   file:
-    path: "/etc/openvpn/client"
+    path: "{{ vpn_client_conf_dir }}"
     state: directory
     owner: root
     group: root
     mode: '0755'
 
-- name: Download base64-encoded VPN archive from GCP Secret Manager
-  shell: |
-    gcloud secrets versions access latest \
-      --secret="{{ gcp_secrets_prefix }}{{ client_name }}" \
-      --project="{{ gcp_project_id }}" | base64 -d > {{ temp_dir.path }}/{{ client_name }}.tar.gz
-
-- name: Extract archive into /etc/openvpn/client/
+- name: Extract archive into OpenVPN dir
   unarchive:
-    src: "{{ temp_dir.path }}/{{ client_name }}.tar.gz"
-    dest: "/etc/openvpn/client"
+    src: "/tmp/{{ client_name }}.tar.gz"
+    dest: "{{ vpn_client_conf_dir }}"
     remote_src: yes
 
 - name: Ensure config is at expected path
   copy:
     remote_src: yes
-    src: "/etc/openvpn/client/{{ client_name }}.conf"
-    dest: "/etc/openvpn/client/{{ client_name }}.conf"
+    src: "{{ vpn_client_conf_dir }}/{{ client_name }}.conf"
+    dest: "{{ vpn_client_conf_dir }}/{{ client_name }}.conf"
 
 - name: Make dns-hooks.sh executable (optional)
   file:
-    path: "/etc/openvpn/client/dns-hooks.sh"
+    path: "{{ vpn_client_conf_dir }}/dns-hooks.sh"
     mode: '0755'
   when: ansible_facts['distribution'] != "Alpine"
 
@@ -49,3 +58,14 @@
     name: "openvpn-client@{{ client_name }}.service"
     enabled: yes
     state: restarted
+
+- name: Remove local temp dir
+  file:
+    path: "{{ temp_dir.path }}"
+    state: absent
+  delegate_to: localhost
+
+- name: Remove remote temp archive
+  file:
+    path: "/tmp/{{ client_name }}.tar.gz"
+    state: absent
