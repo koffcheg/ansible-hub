@@ -43,7 +43,7 @@
   args:
     executable: /bin/bash
   environment:
-    GOOGLE_APPLICATION_CREDENTIALS: "{{ google_application_credentials }}"
+    GOOGLE_APPLICATION_CREDENTIALS: "{{ gcp_credentials_file }}"
 
 - name: Confirm upload complete
   become: false
