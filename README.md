@@ -58,19 +58,19 @@ This repository provides a fully automated, production-grade system for managing
 ### 1. `create_and_upload.yaml`
 Creates a new client cert, uploads it to GCP Secret Manager.
 ```bash
-ansible-playbook playbooks/create_and_upload.yaml -e '{"client_name": "client77"}'
+ansible-playbook playbooks/create_and_upload.yaml -e "client_names=['client66','client67']"
 ```
 
 ### 2. `update_and_install.yaml`
 Rotates cert, bumps version, uploads archive, and installs remotely.
 ```bash
-ansible-playbook playbooks/update_and_install.yaml -e '{"client_name": "client77"}'
+ansible-playbook playbooks/update_and_install.yaml -e "client_names=['client66','client67']"
 ```
 
 ### 3. `delete_clients.yaml`
 Deletes a client’s certs, metadata, and remote installation.
 ```bash
-ansible-playbook playbooks/delete_clients.yaml -e '{"client_name": "client77"}'
+ansible-playbook playbooks/delete_clients.yaml -e "client_names=['client66','client67']"
 ```
 
 ### 4. `factory_pull.yaml`
