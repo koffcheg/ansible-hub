@@ -1,77 +1,122 @@
-# Ansible Hub: VPN Client Automation
+# Ansible VPN Automation Hub
 
-## 📦 Overview
-
-This repository provides a centralized automation system to:
-- Onboard new OpenVPN clients with automatic cert generation
-- Sync configs securely to Google Secret Manager
-- Install `.ovpn` configs remotely onto clients
-- Rotate or revoke client access on demand
-- Trigger flows using a REST API (Flask-based)
-- Optionally prepare factory USB payloads
-
-## 📁 Structure
-
-```
-ansible-hub/
-├── playbooks/
-│   ├── handle_new_client.yaml
-│   ├── rotate_cert.yaml
-│   ├── revoke_client.yaml
-│   ├── delete_clients.yaml
-│   ├── upload_clients.yaml
-│   ├── install_clients.yaml
-│   └── factory_usb.yaml
-├── roles/
-│   ├── vpn_cert/         # Handles cert generation, rotation, revocation
-│   ├── vpn_client/       # Handles upload, download, install, delete
-│   ├── gcp_secret_sync/  # Uploads secrets to GCP Secret Manager
-│   └── factory_usb/      # Creates USB provisioning payloads
-├── rest_gateway/
-│   ├── app.py            # Flask API
-│   ├── requirements.txt
-│   └── docker-compose.yaml
-└── group_vars/
-    └── all.yaml          # GCP project, region, etc.
-```
-
-## 🚀 Usage
-
-### 🔧 Run REST Gateway
-
-```bash
-cd rest_gateway
-docker-compose up --build
-```
-
-### 🌐 API Endpoints
-
-| Method | URL              | Action                 |
-|--------|------------------|------------------------|
-| POST   | `/onboard`       | Onboard new client     |
-| POST   | `/rotate`        | Rotate client cert     |
-| POST   | `/delete`        | Revoke client cert     |
-| POST   | `/install`       | Install config remotely|
-| POST   | `/factory-usb`   | Prepare USB payload    |
-
-Body (JSON):
-```json
-{ "name": "client22" }
-```
-
-## 🔐 GCP Setup
-
-Ensure the VM running this repo has Secret Manager access scope enabled. Auth via:
-
-```bash
-gcloud auth login
-gcloud config set project your-project-id
-```
-
-## 📊 Monitoring
-
-Use Prometheus/Grafana to monitor client tunnel uptime and ping metrics separately.
+This repository provides a fully automated, production-grade system for managing VPN clients using OpenVPN, Ansible, and GCP Secret Manager. It supports full lifecycle operations: creation, rotation, deletion, and factory provisioning for Jetson or other factory clients.
 
 ---
 
-© 2025 Ansible Hub Automation | Powered by OpenVPN, Ansible, and GCP
+## 📁 Directory Structure
+
+```
+.
+├── ansible.cfg
+├── collections/
+│   └── requirements.yaml
+├── group_vars/
+│   ├── all.yaml
+│   └── vpn/clients_index.yaml
+├── inventory/
+│   └── production.ini
+├── playbooks/
+│   ├── create_and_upload.yaml
+│   ├── delete_clients.yaml
+│   ├── factory_pull.yaml
+│   ├── update_and_install.yaml
+│   ├── tasks/
+│   │   ├── create_per_client.yaml
+│   │   └── rotate_per_client.yaml
+│   ├── templates/
+│   │   └── install.sh.j2
+├── roles/
+│   ├── vpn_cert/
+│   │   ├── tasks/
+│   │   │   ├── create.yaml
+│   │   │   ├── revoke_pending.yaml
+│   │   │   └── rotate.yaml
+│   │   ├── templates/
+│   │   │   └── base_client.conf.j2
+│   │   └── files/
+│   │       └── dns-hooks.sh
+│   └── vpn_client/
+│       └── tasks/
+│           ├── delete.yaml
+│           ├── download.yaml
+│           ├── install_remote.yaml
+│           ├── mark_installed.yaml
+│           ├── read_meta.yaml
+│           ├── upload.yaml
+│           └── write_meta.yaml
+├── tasks/
+│   ├── activate_gcp_account.yaml
+│   └── load_controller_vars.yaml
+└── README.md
+```
+
+---
+
+## 🚀 Main Playbooks
+
+### 1. `create_and_upload.yaml`
+Creates a new client cert, uploads it to GCP Secret Manager.
+```bash
+ansible-playbook playbooks/create_and_upload.yaml -e '{"client_name": "client77"}'
+```
+
+### 2. `update_and_install.yaml`
+Rotates cert, bumps version, uploads archive, and installs remotely.
+```bash
+ansible-playbook playbooks/update_and_install.yaml -e '{"client_name": "client77"}'
+```
+
+### 3. `delete_clients.yaml`
+Deletes a client’s certs, metadata, and remote installation.
+```bash
+ansible-playbook playbooks/delete_clients.yaml -e '{"client_name": "client77"}'
+```
+
+### 4. `factory_pull.yaml`
+Pulls the config from GCP, unpacks it, renders install.sh, and places it in USB-friendly structure.
+```bash
+ansible-playbook playbooks/factory_pull.yaml -e '{"client_name": "client77"}'
+```
+
+---
+
+## ⚙️ Requirements
+
+- Python 3.10+
+- Ansible 2.15+
+- `gcloud` CLI authenticated
+- GCP project with Secret Manager enabled
+- SSH access to VPN clients
+
+Install Ansible requirements:
+```bash
+ansible-galaxy collection install -r collections/requirements.yaml
+```
+
+---
+
+## 📦 Variable Config
+
+Edit in `group_vars/all.yaml`:
+```yaml
+gcp_project_id: your-gcp-project
+gcp_service_account: ansible-secret-manager@your-project.iam.gserviceaccount.com
+gcp_credentials_file: /home/youruser/your-sa-key.json
+```
+
+---
+
+## 💡 Tips
+
+- Always pass vars using JSON (`-e '{"client_name": "client77"}'`)
+- Use inventory in `inventory/production.ini` to define remote client connections
+- Logs and extracted configs for factory stored in `~/factory_output/CLIENT_NAME`
+
+---
+
+## 🧠 License & Author
+
+Production automation architecture designed by OpenAI ChatGPT (with Romek Wozniak).
+
+MIT License.
