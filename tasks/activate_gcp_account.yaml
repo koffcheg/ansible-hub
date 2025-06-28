@@ -1,6 +1,8 @@
 ---
 # tasks/activate_gcp_account.yaml
 - name: Check that gcloud CLI is available
+  stat:
+    path: /snap/bin/gcloud
   command: which gcloud
   become: false
   register: gcloud_check
