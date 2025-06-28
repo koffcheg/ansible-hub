@@ -2,6 +2,7 @@
 # tasks/activate_gcp_account.yaml
 - name: Check that gcloud CLI is available
   command: which gcloud
+  become: false
   register: gcloud_check
   failed_when: gcloud_check.rc != 0
   changed_when: false
@@ -15,6 +16,7 @@
     --project="{{ gcp_project_id }}"
   environment:
     GOOGLE_APPLICATION_CREDENTIALS: "{{ gcp_credentials_file }}"
+  become: false
   delegate_to: localhost
   run_once: true
 
@@ -22,5 +24,6 @@
   command: gcloud auth list --filter=status:ACTIVE --format='value(account)'
   register: gcloud_active_account
   failed_when: gcloud_active_account.stdout != gcp_service_account
+  become: false
   delegate_to: localhost
   run_once: true
