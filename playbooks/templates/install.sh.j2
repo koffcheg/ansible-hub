@@ -25,4 +25,7 @@ echo "[INFO] Enabling and starting OpenVPN service..."
 sudo systemctl enable "openvpn-client@${CONFIG_NAME}.service"
 sudo systemctl restart "openvpn-client@${CONFIG_NAME}.service"
 
+echo "[INFO] Cleaning up install folder from USB..."
+rm -rf "$SRC_DIR"
+
 echo "[INFO] VPN setup complete!"
