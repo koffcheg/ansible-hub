@@ -34,28 +34,26 @@
     executable: /bin/bash
   delegate_to: localhost
 
-- name: Ensure factory client config directory exists
+- name: Ensure factory output dir exists
   file:
-    path: "{{ factory_client_config_dir }}/{{ client_name }}/"
+    path: "{{ factory_client_config_dir }}"
     state: directory
     mode: '0755'
   delegate_to: localhost
 
-- name: Extract archive to client config folder
-  unarchive:
+- name: Copy decoded archive to factory output location
+  copy:
+    remote_src: yes
     src: "{{ archive_path }}"
-    dest: "{{ factory_client_config_dir }}/{{ client_name }}/"
-    remote_src: no
+    dest: "{{ factory_client_config_dir }}/{{ client_name }}.tar.gz"
+    mode: '0644'
   delegate_to: localhost
 
-- name: Cleanup
+- name: Remove base64 file
   file:
-    path: "{{ item }}"
+    path: "{{ archive_path }}.b64"
     state: absent
-  loop:
-    - "{{ archive_path }}"
-    - "{{ archive_path }}.b64"
   delegate_to: localhost
 
 - debug:
-    msg: "Pulled and extracted config for {{ client_name }}"
+    msg: "Downloaded and copied archive for {{ client_name }} to factory output."
