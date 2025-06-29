@@ -22,6 +22,7 @@
     path: "{{ client_config_dir }}"
     state: directory
     mode: '0700'
+    force: true
 
 - name: Fetch certs & keys to controller
   become: true
@@ -50,6 +51,7 @@
     mode: '0755'
 
 - name: Render install.sh into client folder
+  delegate_to: localhost
   template:
     src: install.sh.j2
     dest: "{{ client_config_dir }}/install.sh"
