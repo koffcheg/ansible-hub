@@ -1,9 +1,5 @@
 ---
 # roles/vpn_client/tasks/download.yaml
-- name: Set archive path
-  set_fact:
-    archive_path: "/tmp/{{ client_name }}.tar.gz"
-
 - name: Download base64 archive from GCP Secret Manager
   shell: |
     gcloud secrets versions access latest \
