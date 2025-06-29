@@ -30,21 +30,6 @@
     executable: /bin/bash
   delegate_to: localhost
 
-- name: Ensure factory output dir exists
-  file:
-    path: "{{ factory_client_config_dir }}"
-    state: directory
-    mode: '0755'
-  delegate_to: localhost
-
-- name: Copy decoded archive to factory output location
-  copy:
-    remote_src: yes
-    src: "{{ archive_path }}"
-    dest: "{{ factory_client_config_dir }}/{{ client_name }}.tar.gz"
-    mode: '0644'
-  delegate_to: localhost
-
 - name: Remove base64 file
   file:
     path: "{{ archive_path }}.b64"
@@ -52,4 +37,4 @@
   delegate_to: localhost
 
 - debug:
-    msg: "Downloaded and copied archive for {{ client_name }} to factory output."
+    msg: "Archive ready at {{ archive_path }}"

@@ -4,9 +4,6 @@
   hosts: localhost
   gather_facts: false
 
-  vars:
-    output_dir: "{{ lookup('env', 'HOME') }}/factory_output/{{ client_name }}"
-
   pre_tasks:
     - name: Ensure client_name is provided
       fail:
@@ -23,26 +20,3 @@
       include_role:
         name: vpn_client
         tasks_from: download
-
-    - name: Copy extracted config to factory output directory
-      copy:
-        src: "{{ factory_client_config_dir }}/{{ client_name }}/"
-        dest: "{{ output_dir }}/"
-        mode: '0644'
-        remote_src: yes
-
-    - name: Ensure output_dir exists with proper permissions
-      file:
-        path: "{{ output_dir }}"
-        state: directory
-        mode: '0755'
-
-    - name: Render install.sh into factory config dir
-      template:
-        src: install.sh.j2
-        dest: "{{ output_dir }}/install.sh"
-        mode: '0755'
-
-    - name: Confirm USB-ready config folder created
-      debug:
-        msg: "VPN config + installer ready at {{ output_dir }}"

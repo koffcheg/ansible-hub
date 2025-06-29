@@ -49,6 +49,12 @@
     dest: "{{ client_config_dir }}/dns-hooks.sh"
     mode: '0755'
 
+- name: Render install.sh into client folder
+  template:
+    src: install.sh.j2
+    dest: "{{ client_config_dir }}/install.sh"
+    mode: '0755'
+
 - name: Remove previous archive if it exists
   delegate_to: localhost
   file:
@@ -67,6 +73,7 @@
       - "{{ client_config_dir }}/ta.key"
       - "{{ client_config_dir }}/{{ client_name }}.conf"
       - "{{ client_config_dir }}/dns-hooks.sh"
+      - "{{ client_config_dir }}/install.sh"
     dest: "{{ client_config_dir }}/{{ client_name }}.tar.gz"
     format: gz
 
