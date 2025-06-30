@@ -52,7 +52,8 @@
     owner: root
     group: root
     mode: '0644'
-
+    remote_src: true
+    
 - name: Delete client cert from EasyRSA
   file:
     path: "{{ easy_rsa_dir }}/pki/issued/{{ client_name }}.crt"
