@@ -111,12 +111,3 @@ gcp_credentials_file: /home/youruser/your-sa-key.json
 
 - Always pass vars using JSON (`-e '{"client_name": "client77"}'`)
 - Use inventory in `inventory/production.ini` to define remote client connections
-- Logs and extracted configs for factory stored in `~/factory_output/CLIENT_NAME`
-
----
-
-## 🧠 License & Author
-
-Production automation architecture designed by OpenAI ChatGPT (with Romek Wozniak).
-
-MIT License.
