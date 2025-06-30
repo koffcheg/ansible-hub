@@ -1,5 +1,7 @@
 ---
 # roles/vpn_client/tasks/delete.yaml
+# Delete + revoke a VPN client without disturbing others.
+
 - name: Activate GCP service account
   import_tasks: "{{ playbook_dir }}/../tasks/activate_gcp_account.yaml"
   delegate_to: localhost
@@ -8,27 +10,48 @@
 - name: Delete GCP Secret (if exists)
   delegate_to: localhost
   shell: |
-    if gcloud secrets describe {{ gcp_secrets_prefix }}{{ client_name }} --project={{ gcp_project_id }} 2>/dev/null; then
-      gcloud secrets delete {{ gcp_secrets_prefix }}{{ client_name }} --quiet --project={{ gcp_project_id }}
+    if gcloud secrets describe {{ gcp_secrets_prefix }}{{ client_name }} \
+         --project={{ gcp_project_id }} 2>/dev/null; then
+      gcloud secrets delete {{ gcp_secrets_prefix }}{{ client_name }} \
+        --quiet --project={{ gcp_project_id }}
+      echo "Deleted secret"
     else
-      echo "Secret not found: {{ gcp_secrets_prefix }}{{ client_name }}"
+      echo "Secret not found"
     fi
-  register: delete_gcp_secret_result
-  changed_when: "'Deleted secret' in delete_gcp_secret_result.stdout"
   args:
     executable: /bin/bash
+  register: gcp_secret_out
+  changed_when: "'Deleted secret' in gcp_secret_out.stdout"
 
 - name: Delete local client config dir on controller
   delegate_to: localhost
   file:
     path: "{{ client_configs_base_dir }}/{{ client_name }}"
     state: absent
-  register: local_cleanup_result
+  register: local_cleanup
 
 - name: Confirm local cleanup
   debug:
     msg: "Deleted local files at {{ client_configs_base_dir }}/{{ client_name }}"
-  when: local_cleanup_result.changed
+  when: local_cleanup.changed
+
+- name: Revoke certificate in EasyRSA
+  command: ./easyrsa --batch revoke {{ client_name }}
+  args:
+    chdir: "{{ easy_rsa_dir }}"
+
+- name: Generate updated CRL
+  command: ./easyrsa gen-crl
+  args:
+    chdir: "{{ easy_rsa_dir }}"
+
+- name: Copy refreshed crl.pem to OpenVPN dir
+  copy:
+    src: "{{ easy_rsa_dir }}/pki/crl.pem"
+    dest: "/etc/openvpn/crl.pem"
+    owner: root
+    group: root
+    mode: '0644'
 
 - name: Delete client cert from EasyRSA
   file:
