@@ -1,31 +1,49 @@
-#!/bin/bash
-
-set -e
+#!/usr/bin/env bash
+# install.sh — auto-install OpenVPN client files and start service
+set -euo pipefail
 
 CONFIG_NAME="{{ client_name }}"
-SRC_DIR="$(dirname "$0")"
+SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
 TARGET_DIR="/etc/openvpn/client"
-CONFIG_PATH="${TARGET_DIR}/${CONFIG_NAME}.conf"
+SERVICE="openvpn-client@${CONFIG_NAME}.service"
 
-echo "[INFO] Installing VPN config for $CONFIG_NAME"
+log() { echo "[install:$CONFIG_NAME] $*"; }
 
-sudo mkdir -p "$TARGET_DIR"
-sudo cp "$SRC_DIR"/*.crt "$TARGET_DIR/"
-sudo cp "$SRC_DIR"/*.key "$TARGET_DIR/"
-sudo cp "$SRC_DIR"/ta.key "$TARGET_DIR/"
-sudo cp "$SRC_DIR"/ca.crt "$TARGET_DIR/"
-sudo cp "$SRC_DIR"/"${CONFIG_NAME}.conf" "$CONFIG_PATH"
+trap 'log "FAILED"; exit 1' ERR
 
-if [ -f "$SRC_DIR/dns-hooks.sh" ]; then
-  sudo cp "$SRC_DIR/dns-hooks.sh" "$TARGET_DIR/"
-  sudo chmod +x "$TARGET_DIR/dns-hooks.sh"
+log "Checking OpenVPN package…"
+if ! command -v openvpn >/dev/null 2>&1; then
+  log "OpenVPN not found, installing"
+  sudo apt-get update -qq
+  sudo apt-get install -y openvpn
 fi
 
-echo "[INFO] Enabling and starting OpenVPN service..."
-sudo systemctl enable "openvpn-client@${CONFIG_NAME}.service"
-sudo systemctl restart "openvpn-client@${CONFIG_NAME}.service"
+log "Copying config to $TARGET_DIR"
+sudo mkdir -p "$TARGET_DIR"
+sudo cp "$SRC_DIR"/*.crt  "$TARGET_DIR/"
+sudo cp "$SRC_DIR"/*.key  "$TARGET_DIR/"
+sudo cp "$SRC_DIR"/ta.key "$TARGET_DIR/"
+sudo cp "$SRC_DIR"/ca.crt "$TARGET_DIR/"
+sudo cp "$SRC_DIR"/"${CONFIG_NAME}.conf" "$TARGET_DIR/${CONFIG_NAME}.conf"
 
-echo "[INFO] Cleaning up install folder from USB..."
-rm -rf "$SRC_DIR"
+# lock down private key
+sudo chmod 600 "$TARGET_DIR/${CONFIG_NAME}.key"
 
-echo "[INFO] VPN setup complete!"
+# optional DNS hooks
+if [[ -f "$SRC_DIR/dns-hooks.sh" ]]; then
+  sudo cp "$SRC_DIR/dns-hooks.sh" "$TARGET_DIR/"
+  sudo chmod 755 "$TARGET_DIR/dns-hooks.sh"
+fi
+
+log "Reloading systemd units"
+sudo systemctl daemon-reload
+
+log "Enabling and (re)starting $SERVICE"
+sudo systemctl enable "$SERVICE"
+sudo systemctl restart "$SERVICE"
+
+log "Cleaning up installer files"
+cd /
+sudo rm -rf "$SRC_DIR"
+
+log "VPN setup complete!"
