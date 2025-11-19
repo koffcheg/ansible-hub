@@ -1,5 +1,7 @@
----
+# roles/monitoring_prometheus/handlers/main.yml
+
 - name: Reload Prometheus
   service:
-    name: prometheus
+    name: "{{ monitoring_prometheus_service_name }}"
     state: reloaded
+  when: monitoring_prometheus_reload | bool

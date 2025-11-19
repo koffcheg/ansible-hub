@@ -1,0 +1,4 @@
+monitoring_prometheus_config_path: /etc/prometheus/prometheus.yml
+monitoring_prometheus_promtool_path: /etc/prometheus/promtool
+monitoring_prometheus_service_name: prometheus
+monitoring_prometheus_reload: true  # manual reload by default

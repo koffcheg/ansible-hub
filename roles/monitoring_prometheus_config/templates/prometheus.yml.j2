@@ -14,18 +14,13 @@ scrape_configs:
       - targets: ["10.9.0.1:9176"]
 
   # Jetson Exporters
-  - job_name: "nvidia_jetson"
+  - job_name: 'nvidia_jetson'
     scrape_interval: 30s
     scrape_timeout: 25s
     static_configs:
       - targets:
-{% for name, v in vpn_index.clients.items() %}
-{%   if v is mapping %}
-{%     set ip = v.ip %}
-{%   else %}
-{%     set ip = v %}
-{%   endif %}
-          - "{{ ip }}:8000"
+{% for ip in monitoring_jetson_targets | default([]) %}
+          - {{ ip }}:8000
 {% endfor %}
     relabel_configs:
       - source_labels: [__address__]
@@ -42,16 +37,11 @@ scrape_configs:
         replacement: "jetson-node"
 
   # Docker / cAdvisor exporters
-  - job_name: "docker"
+  - job_name: 'docker'
     static_configs:
       - targets:
-{% for name, v in vpn_index.clients.items() %}
-{%   if v is mapping %}
-{%     set ip = v.ip %}
-{%   else %}
-{%     set ip = v %}
-{%   endif %}
-          - "{{ ip }}:8088"
+{% for ip in monitoring_jetson_targets | default([]) %}
+          - {{ ip }}:8088
 {% endfor %}
     relabel_configs:
       - source_labels: [__address__]
@@ -68,16 +58,11 @@ scrape_configs:
         replacement: "jetson-node"
 
   # MQTT Exporters
-  - job_name: "mqtt"
+  - job_name: 'mqtt'
     static_configs:
       - targets:
-{% for name, v in vpn_index.clients.items() %}
-{%   if v is mapping %}
-{%     set ip = v.ip %}
-{%   else %}
-{%     set ip = v %}
-{%   endif %}
-          - "{{ ip }}:9234"
+{% for ip in monitoring_jetson_targets | default([]) %}
+          - {{ ip }}:9234
 {% endfor %}
     relabel_configs:
       - source_labels: [__address__]

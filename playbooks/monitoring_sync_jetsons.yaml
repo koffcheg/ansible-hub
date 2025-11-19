@@ -1,9 +1,21 @@
----
-- name: Sync Prometheus config with VPN clients index
+# playbooks/monitoring_sync_jetsons.yaml
+
+- name: Sync Prometheus Jetson targets from VPN clients_index
   hosts: monitoring
-  become: yes
+  become: true
+
   vars_files:
-    - "{{ playbook_dir }}/../group_vars/vpn/clients_index.yaml"
+    - group_vars/vpn/clients_index.yaml
+
+  pre_tasks:
+    - name: Build sorted list of Jetson IPs from clients_index
+      set_fact:
+        monitoring_jetson_targets: >-
+          {{ clients
+             | dict2items
+             | sort(attribute='key')
+             | map(attribute='value')
+             | list }}
 
   roles:
-    - monitoring_prometheus_config
+    - monitoring_prometheus
