@@ -3,5 +3,7 @@
 - name: Reload Prometheus
   service:
     name: "{{ monitoring_prometheus_service_name }}"
-    state: reloaded
+    state: restarted
+    enabled: true
+  listen: "reload prometheus"
   when: monitoring_prometheus_reload | bool
