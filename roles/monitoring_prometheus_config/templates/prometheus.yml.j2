@@ -1,0 +1,97 @@
+global:
+  scrape_interval: 10s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Prometheus
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # OpenVPN Exporter
+  - job_name: "openvpn"
+    static_configs:
+      - targets: ["10.9.0.1:9176"]
+
+  # Jetson Exporters
+  - job_name: "nvidia_jetson"
+    scrape_interval: 30s
+    scrape_timeout: 25s
+    static_configs:
+      - targets:
+{% for name, v in vpn_index.clients.items() %}
+{%   if v is mapping %}
+{%     set ip = v.ip %}
+{%   else %}
+{%     set ip = v %}
+{%   endif %}
+          - "{{ ip }}:8000"
+{% endfor %}
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: "(.*):8000"
+        target_label: ip
+        replacement: "$1"
+      - source_labels: [__address__]
+        regex: "10\\.9\\.0\\.(.*):8000"
+        target_label: instance_name
+        replacement: "jetson-$1"
+      - target_label: exporter
+        replacement: "jetson"
+      - target_label: role
+        replacement: "jetson-node"
+
+  # Docker / cAdvisor exporters
+  - job_name: "docker"
+    static_configs:
+      - targets:
+{% for name, v in vpn_index.clients.items() %}
+{%   if v is mapping %}
+{%     set ip = v.ip %}
+{%   else %}
+{%     set ip = v %}
+{%   endif %}
+          - "{{ ip }}:8088"
+{% endfor %}
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: "(.*):8088"
+        target_label: ip
+        replacement: "$1"
+      - source_labels: [__address__]
+        regex: "10\\.9\\.0\\.(.*):8088"
+        target_label: instance_name
+        replacement: "jetson-$1"
+      - target_label: exporter
+        replacement: "cadvisor"
+      - target_label: role
+        replacement: "jetson-node"
+
+  # MQTT Exporters
+  - job_name: "mqtt"
+    static_configs:
+      - targets:
+{% for name, v in vpn_index.clients.items() %}
+{%   if v is mapping %}
+{%     set ip = v.ip %}
+{%   else %}
+{%     set ip = v %}
+{%   endif %}
+          - "{{ ip }}:9234"
+{% endfor %}
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: "(.*):9234"
+        target_label: ip
+        replacement: "$1"
+      - source_labels: [__address__]
+        regex: "10\\.9\\.0\\.(.*):9234"
+        target_label: instance_name
+        replacement: "jetson-$1"
+      - target_label: exporter
+        replacement: "mqtt"
+      - target_label: role
+        replacement: "jetson-node"
+
+rule_files:
+  - /etc/prometheus/alert.rules.yml

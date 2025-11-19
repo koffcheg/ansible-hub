@@ -1,0 +1,9 @@
+---
+- name: Sync Prometheus config with VPN clients index
+  hosts: monitoring
+  become: yes
+  vars_files:
+    - "{{ playbook_dir }}/../group_vars/vpn/clients_index.yaml"
+
+  roles:
+    - monitoring_prometheus_config

@@ -1,0 +1,22 @@
+---
+- name: Load VPN clients index
+  include_vars:
+    file: "{{ playbook_dir }}/../group_vars/vpn/clients_index.yaml"
+    name: vpn_index
+
+- name: Ensure Prometheus config directory exists
+  file:
+    path: /etc/prometheus
+    state: directory
+    owner: prometheus
+    group: prometheus
+    mode: "0755"
+
+- name: Render prometheus.yml from template
+  template:
+    src: prometheus.yml.j2
+    dest: /etc/prometheus/prometheus.yml
+    owner: prometheus
+    group: prometheus
+    mode: "0644"
+  notify: Reload Prometheus
