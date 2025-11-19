@@ -5,7 +5,7 @@
   become: true
 
   vars_files:
-    - group_vars/vpn/clients_index.yaml
+    - "{{ playbook_dir }}/../group_vars/vpn/clients_index.yaml"
 
   pre_tasks:
     - name: Build sorted list of Jetson IPs from clients_index
