@@ -18,4 +18,4 @@
              | list }}
 
   roles:
-    - monitoring_prometheus
+    - monitoring_prometheus_config

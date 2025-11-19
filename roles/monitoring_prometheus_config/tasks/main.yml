@@ -1,4 +1,4 @@
-# roles/monitoring_prometheus/tasks/main.yml
+# roles/monitoring_prometheus_config/tasks/main.yml
 
 - name: Ensure Prometheus config directory exists
   file:

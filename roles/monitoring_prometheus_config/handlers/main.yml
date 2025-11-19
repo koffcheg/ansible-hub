@@ -1,4 +1,4 @@
-# roles/monitoring_prometheus/handlers/main.yml
+# roles/monitoring_prometheus_config/handlers/main.yml
 
 - name: Reload Prometheus
   service:
