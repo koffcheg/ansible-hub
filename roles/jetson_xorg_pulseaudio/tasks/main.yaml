@@ -136,12 +136,21 @@
   when: not ansible_check_mode
 
 # Pulseaudio is a user service; we must run systemctl --user as checkout
-- name: Start pulseaudio user service
+- name: Get UID of checkout user (remote)
+  become: true
+  command: id -u checkout
+  register: checkout_uid
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Start pulseaudio user service for checkout
   become: true
   become_user: checkout
   environment:
-    XDG_RUNTIME_DIR: "/run/user/{{ lookup('ansible.builtin.pipe','id -u checkout') }}"
-  command: systemctl --user daemon-reload
+    # Ensure systemd --user talks to correct runtime directory
+    XDG_RUNTIME_DIR: "/run/user/{{ checkout_uid.stdout }}"
+  command: systemctl --user enable --now pulseaudio.service
+  when: not ansible_check_mode
 
 - name: Ensure pulseaudio is active
   become: true
