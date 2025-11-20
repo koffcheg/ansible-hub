@@ -119,7 +119,6 @@
     group: checkout
     mode: "0644"
 
-# 4.2.4. Enable and start services (Xorg + pulseaudio)
 # Xorg-pulseaudio is a system service
 - name: Reload systemd units for xorg-pulseaudio
   become: true
@@ -135,7 +134,8 @@
     state: started
   when: not ansible_check_mode
 
-# Pulseaudio is a user service; we must run systemctl --user as checkout
+# --- Pulseaudio user service for checkout ---
+
 - name: Get UID of checkout user (remote)
   become: true
   command: id -u checkout
@@ -147,7 +147,6 @@
   become: true
   become_user: checkout
   environment:
-    # Ensure systemd --user talks to correct runtime directory
     XDG_RUNTIME_DIR: "/run/user/{{ checkout_uid.stdout }}"
   command: systemctl --user enable --now pulseaudio.service
   when: not ansible_check_mode
@@ -156,5 +155,9 @@
   become: true
   become_user: checkout
   environment:
-    XDG_RUNTIME_DIR: "/run/user/{{ lookup('ansible.builtin.pipe','id -u checkout') }}"
-  command: systemctl --user restart pulseaudio.service
+    XDG_RUNTIME_DIR: "/run/user/{{ checkout_uid.stdout }}"
+  command: systemctl --user is-active pulseaudio.service
+  register: pulseaudio_status
+  changed_when: false
+  failed_when: pulseaudio_status.rc != 0
+  when: not ansible_check_mode
