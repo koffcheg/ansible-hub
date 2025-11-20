@@ -1,0 +1,49 @@
+---
+- name: Install Docker Compose v2 binary
+  become: true
+  get_url:
+    url: "https://github.com/docker/compose/releases/download/v2.33.1/docker-compose-Linux-aarch64"
+    dest: /usr/local/bin/docker-compose
+    mode: "0755"
+
+- name: Ensure docker CLI plugin dir exists for checkout user
+  become: true
+  become_user: checkout
+  file:
+    path: /home/checkout/.docker/cli-plugins
+    state: directory
+    mode: "0755"
+
+- name: Install docker compose plugin
+  become: true
+  become_user: checkout
+  get_url:
+    url: "https://github.com/docker/compose/releases/download/v2.33.1/docker-compose-Linux-aarch64"
+    dest: /home/checkout/.docker/cli-plugins/docker-compose
+    mode: "0755"
+
+# Equivalent to doc: loginctl enable-linger checkout (already done in jetson_user_and_sudo)
+
+# Make sure xorg-pulseaudio still enabled (double safety)
+- name: Ensure xorg-pulseaudio service enabled
+  become: true
+  systemd:
+    name: xorg-pulseaudio.service
+    enabled: true
+
+- name: Ensure gdm is disabled
+  become: true
+  systemd:
+    name: gdm
+    enabled: false
+    state: stopped
+  ignore_errors: true
+
+# Optionally reboot here to simulate doc's reboot after compose & xorg setup
+- name: Reboot to apply display stack and docker changes
+  become: true
+  reboot:
+    msg: "Reboot after Docker Compose + Xorg/Pulse setup"
+    connect_timeout: 60
+    reboot_timeout: 600
+  when: jetson_do_reboot | default(true)

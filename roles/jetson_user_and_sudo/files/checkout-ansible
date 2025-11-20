@@ -1,0 +1,2 @@
+# Central passwordless sudo for automation
+checkout ALL=(ALL) NOPASSWD: ALL

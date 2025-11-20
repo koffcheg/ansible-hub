@@ -1,0 +1,40 @@
+---
+- name: Update apt cache
+  become: true
+  apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install system packages required by Eco Boutique provision guide
+  become: true
+  apt:
+    name:
+      - curl
+      - gnupg
+      - lsb-release
+      - ca-certificates
+      - alsa-base
+      - alsa-utils
+      - libasound2
+      - libasound2-plugins
+      - pulseaudio
+      - pulseaudio-utils
+      - libpulse0
+      - libpulsedsp
+      - xserver-xorg
+      - xserver-xorg-core
+      - x11-utils
+      - x11-xserver-utils
+      - xserver-xorg-input-evdev
+      - python3
+      - python3-pip
+    state: present
+
+- name: Install Python libraries required by Eco Boutique provision guide
+  become: true
+  pip:
+    name:
+      - flask
+      - prometheus_client
+      - jetson-stats
+    executable: pip3

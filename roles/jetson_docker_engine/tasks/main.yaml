@@ -1,0 +1,114 @@
+---
+- name: Remove distro Docker packages (if any) - optional
+  become: true
+  apt:
+    name:
+      - docker
+      - docker.io
+      - docker-engine
+      - containerd
+      - runc
+    state: absent
+  ignore_errors: true
+
+- name: Download Docker static binary tarball
+  become: true
+  get_url:
+    url: "{{ jetson_docker_url }}"
+    dest: /tmp/docker-{{ jetson_docker_version }}.tgz
+    mode: "0644"
+
+- name: Extract Docker
+  become: true
+  unarchive:
+    src: /tmp/docker-{{ jetson_docker_version }}.tgz
+    dest: /tmp/docker-{{ jetson_docker_version }}
+    remote_src: true
+    creates: /tmp/docker-{{ jetson_docker_version }}/docker
+
+- name: Install Docker binaries to /usr/local/bin
+  become: true
+  copy:
+    src: "/tmp/docker-{{ jetson_docker_version }}/docker/"
+    dest: /usr/local/bin/
+    mode: "0755"
+  with_fileglob:
+    - "/tmp/docker-{{ jetson_docker_version }}/docker/*"
+  loop_control:
+    loop_var: docker_bin
+
+- name: Ensure docker.service is enabled and running
+  become: true
+  systemd:
+    name: docker
+    enabled: true
+    state: started
+  ignore_errors: true   # falls back if service file is missing
+
+# /etc/docker/daemon.json matching the doc:
+- name: Ensure /etc/docker directory exists
+  become: true
+  file:
+    path: /etc/docker
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install daemon.json
+  become: true
+  copy:
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      {
+        "max-concurrent-downloads": 10,
+        "max-concurrent-uploads": 5,
+        "default-runtime": "nvidia",
+        "runtimes": {
+          "nvidia": {
+            "path": "nvidia-container-runtime",
+            "runtimeArgs": []
+          }
+        }
+      }
+
+- name: Restart Docker after daemon.json change
+  become: true
+  systemd:
+    name: docker
+    state: restarted
+
+# TLS certs for docker as per doc
+- name: Create /opt/certs directory
+  become: true
+  file:
+    path: /opt/certs
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Generate self-signed cert and key for localhost
+  become: true
+  command: >
+    openssl req -x509 -nodes -days 365
+    -newkey rsa:2048
+    -keyout /opt/certs/localhost.key.pem
+    -out /opt/certs/localhost.cert.pem
+    -subj "/CN=localhost"
+  args:
+    creates: /opt/certs/localhost.key.pem
+
+- name: Fix ownership and permissions of certs
+  become: true
+  file:
+    path: "{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - /opt/certs/localhost.cert.pem
+    - /opt/certs/localhost.key.pem

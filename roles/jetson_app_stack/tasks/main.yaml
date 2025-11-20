@@ -1,0 +1,196 @@
+---
+# roles/jetson_app_stack/tasks/main.yaml
+
+# 1) Clone eco_boutique_deploy repo with submodules
+- name: Ensure eco_boutique_deploy directory exists
+  become: true
+  become_user: checkout
+  file:
+    path: /home/checkout/eco_boutique_deploy
+    state: directory
+    mode: "0755"
+
+- name: Clone eco_boutique_deploy repository (with submodulefs)
+  become: true
+  become_user: checkout
+  git:
+    repo: "https://github.com/EcoBoutique/DockerCompose.git"
+    dest: /home/checkout/eco_boutique_deploy
+    version: "main"
+    recursive: true
+    update: yes
+
+# 2) Fetch eco_boutique_secrets.zip from GCP Secret Manager to Ansible controller
+- name: Download eco_boutique_secrets.zip from GCP Secret Manager
+  delegate_to: localhost
+  run_once: true
+  environment:
+    CLOUDSDK_CORE_PROJECT: "{{ gcp_project_id }}"
+  command: >
+    gcloud secrets versions access latest
+    --secret={{ eco_secrets_gcp_secret_name }}
+    --out-file=/tmp/eco_boutique_secrets.zip
+  register: eco_secrets_download
+  changed_when: false
+
+# 3) Copy secrets archive from controller to each Jetson
+- name: Copy eco_boutique_secrets.zip to Jetson
+  become: true
+  copy:
+    src: /tmp/eco_boutique_secrets.zip
+    dest: /home/checkout/eco_boutique_secrets.zip
+    owner: checkout
+    group: checkout
+    mode: "0600"
+
+# 4) Unpack secrets on the Jetson (matches manual unzip eco_boutique_secrets.zip)
+- name: Ensure eco_boutique_secrets directory exists
+  become: true
+  file:
+    path: /home/checkout/eco_boutique_secrets
+    state: directory
+    owner: checkout
+    group: checkout
+    mode: "0700"
+
+- name: Unpack eco_boutique_secrets.zip on Jetson
+  become: true
+  unarchive:
+    src: /home/checkout/eco_boutique_secrets.zip
+    dest: /home/checkout
+    remote_src: true
+    owner: checkout
+    group: checkout
+
+# After this we expect structure:
+# /home/checkout/eco_boutique_secrets/.env
+# /home/checkout/eco_boutique_secrets/frontend/.env
+# /home/checkout/eco_boutique_secrets/frontend/.env.development
+# /home/checkout/eco_boutique_secrets/state/.env
+# /home/checkout/eco_boutique_secrets/state/credentials.json
+# /home/checkout/eco_boutique_secrets/state/token.pickle
+# /home/checkout/eco_boutique_secrets/video/.env
+
+# 5) Copy secrets into eco_boutique_deploy tree (exactly as in the doc)
+
+# Root .env -> eco_boutique_deploy/.env
+- name: Copy root .env to deploy root
+  become: true
+  copy:
+    src: /home/checkout/eco_boutique_secrets/.env
+    dest: /home/checkout/eco_boutique_deploy/.env
+    owner: checkout
+    group: checkout
+    mode: "0600"
+    remote_src: true
+
+# Frontend .env and .env.development
+- name: Copy frontend .env files
+  become: true
+  copy:
+    src: "/home/checkout/eco_boutique_secrets/frontend/{{ item }}"
+    dest: "/home/checkout/eco_boutique_deploy/Frontend/{{ item }}"
+    owner: checkout
+    group: checkout
+    mode: "0600"
+    remote_src: true
+  loop:
+    - ".env"
+    - ".env.development"
+
+# StateManager .env, credentials.json, token.pickle
+- name: Copy StateManager secrets
+  become: true
+  copy:
+    src: "/home/checkout/eco_boutique_secrets/state/{{ item }}"
+    dest: "/home/checkout/eco_boutique_deploy/StateManager/{{ item }}"
+    owner: checkout
+    group: checkout
+    mode: "0600"
+    remote_src: true
+  loop:
+    - ".env"
+    - "credentials.json"
+    - "token.pickle"
+
+# VideoIntelligence .env
+- name: Copy VideoIntelligence .env
+  become: true
+  copy:
+    src: /home/checkout/eco_boutique_secrets/video/.env
+    dest: /home/checkout/eco_boutique_deploy/VideoIntelligence/.env
+    owner: checkout
+    group: checkout
+    mode: "0600"
+    remote_src: true
+
+# 6) Extract eco_boutique_data.tar.gz if needed (matches "If there is no data folder" step)
+
+- name: Check if data directory exists
+  become: true
+  become_user: checkout
+  stat:
+    path: /home/checkout/eco_boutique_deploy/data
+  register: eco_data_dir
+
+- name: Extract eco_boutique_data.tar.gz if data directory is missing
+  become: true
+  become_user: checkout
+  unarchive:
+    src: /home/checkout/eco_boutique_deploy/eco_boutique_data.tar.gz
+    dest: /home/checkout/eco_boutique_deploy
+    remote_src: true
+  when: not eco_data_dir.stat.exists
+
+# 7) Install Jetson exporter & docker-compose-pos.service (from jetson_system_setup)
+
+# These files must be placed in roles/jetson_app_stack/files/:
+#   - exporter/jetson_prometheus_exporter.py
+#   - exporter/jetson_exporter.service
+#   - docker-compd/docker-compose-pos.service
+
+- name: Install jetson Prometheus exporter script
+  become: true
+  copy:
+    src: exporter/jetson_prometheus_exporter.py
+    dest: /usr/local/bin/jetson_prometheus_exporter.py
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install jetson_exporter systemd service
+  become: true
+  copy:
+    src: exporter/jetson_exporter.service
+    dest: /etc/systemd/system/jetson_exporter.service
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install docker-compose-pos systemd service
+  become: true
+  copy:
+    src: docker-compd/docker-compose-pos.service
+    dest: /etc/systemd/system/docker-compose-pos.service
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Reload systemd units
+  become: true
+  systemd:
+    daemon_reload: true
+
+- name: Enable and start jetson_exporter.service
+  become: true
+  systemd:
+    name: jetson_exporter.service
+    enabled: true
+    state: started
+
+- name: Enable and start docker-compose-pos.service
+  become: true
+  systemd:
+    name: docker-compose-pos.service
+    enabled: true
+    state: started

@@ -1,0 +1,22 @@
+---
+- name: Ensure checkout is in required groups
+  become: true
+  user:
+    name: checkout
+    groups: "sudo,audio,video,docker,ssl-cert"
+    append: true
+
+- name: Install sudoers file for Ansible / automation
+  become: true
+  copy:
+    src: checkout-ansible
+    dest: /etc/sudoers.d/checkout-ansible
+    owner: root
+    group: root
+    mode: "0440"
+    validate: "visudo -cf %s"
+
+- name: Enable linger for checkout (user systemd needed for pulseaudio)
+  become: true
+  command: loginctl enable-linger checkout
+  changed_when: false

@@ -1,0 +1,5 @@
+ansible_user: checkout
+ansible_ssh_private_key_file: /home/koffcheg/.ssh/jetson_ansible
+ansible_become: true
+ansible_become_method: sudo
+ansible_become_user: root

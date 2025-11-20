@@ -1,0 +1,20 @@
+# playbooks/jetson_full_provision.yaml
+---
+- name: Full Eco Boutique client provision
+  hosts: clients
+  become: true
+
+  # Default variables (can be overridden via inventory or -e from REST)
+  vars:
+    ansible_user: checkout
+    # let API/CLI override reboot behavior if needed
+    jetson_do_reboot: true
+
+  roles:
+    - role: jetson_user_and_sudo
+    - role: jetson_system_packages
+    - role: jetson_env_profile
+    - role: jetson_xorg_pulseaudio
+    - role: jetson_docker_engine
+    - role: jetson_docker_compose
+    - role: jetson_app_stack
