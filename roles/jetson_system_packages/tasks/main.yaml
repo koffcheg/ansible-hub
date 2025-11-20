@@ -38,3 +38,4 @@
       - prometheus_client
       - jetson-stats
     executable: pip3
+  when: not ansible_check_mode
