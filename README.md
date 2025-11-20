@@ -6,7 +6,7 @@ This repository provides a fully automated, production-grade system for managing
 
 ## 📁 Directory Structure
 
-```
+```text
 .
 ├── ansible.cfg
 ├── collections/
@@ -21,6 +21,7 @@ This repository provides a fully automated, production-grade system for managing
 │   ├── delete_clients.yaml
 │   ├── factory_pull.yaml
 │   ├── update_and_install.yaml
+│   ├── monitoring_sync_jetsons.yaml
 │   ├── tasks/
 │   │   ├── create_per_client.yaml
 │   │   └── rotate_per_client.yaml
@@ -56,54 +57,54 @@ This repository provides a fully automated, production-grade system for managing
 ## 🚀 Main Playbooks
 
 ### 1. `create_and_upload.yaml`
+
 Creates a new client cert, uploads it to GCP Secret Manager.
+
 ```bash
 ansible-playbook playbooks/create_and_upload.yaml -e "client_names=['client66','client67']"
 ```
 
 ### 2. `update_and_install.yaml`
+
 Rotates cert, bumps version, uploads archive, and installs remotely.
+
 ```bash
 ansible-playbook playbooks/update_and_install.yaml -e "client_names=['client66','client67']"
 ```
 
 ### 3. `delete_clients.yaml`
+
 Deletes a client’s certs, metadata, and remote installation.
+
 ```bash
 ansible-playbook playbooks/delete_clients.yaml -e "client_names=['client66','client67']"
 ```
 
 ### 4. `factory_pull.yaml`
+
 Pulls the config from GCP, unpacks it, renders install.sh, and places it in USB-friendly structure.
+
 ```bash
 ansible-playbook playbooks/factory_pull.yaml -e '{"client_name": "client77"}'
 ```
 
 ### 5. `monitoring_sync_jetsons.yaml`
 
-This playbook can keep Prometheus in sync with Jetson VPN clients.
+Keeps the Prometheus scrape configuration on the monitoring server in sync with Jetson VPN clients defined in `group_vars/vpn/clients_index.yaml`.
 
-- Define Jetson VPN clients and their VPN IPs in `group_vars/vpn/clients_index.yaml`:
+- Regenerates `/etc/prometheus/prometheus.yml` via the `monitoring_prometheus` role
+- Updates `nvidia_jetson`, `docker` (cAdvisor), and `mqtt` jobs for all Jetson IPs
+- Can be safely dry-run before applying
 
-  ```yaml
-  clients:
-    client1: 10.9.0.30
-    client2: 10.9.0.31
-    # ...
-  ```
+Example usage:
 
-- Run the sync playbook to regenerate `/etc/prometheus/prometheus.yml` on the monitoring VM and reload Prometheus:
+```bash
+# dry run
+ansible-playbook -i inventory/production.ini playbooks/monitoring_sync_jetsons.yaml --check --diff
 
-  ```bash
-  # dry run
-  ansible-playbook -i inventory/production.ini playbooks/monitoring_sync_jetsons.yaml --check
-
-  # apply
-  ansible-playbook -i inventory/production.ini playbooks/monitoring_sync_jetsons.yaml
-  ```
-
-- The Prometheus config template builds `nvidia_jetson`, `docker` (cAdvisor), and `mqtt` scrape jobs for all clients from `clients_index.yaml` (up to ~100–150 Jetsons), so you don’t have to edit `prometheus.yml` by hand when nodes are added or removed.
-
+# apply
+ansible-playbook -i inventory/production.ini playbooks/monitoring_sync_jetsons.yaml
+```
 
 ---
 
@@ -116,6 +117,7 @@ This playbook can keep Prometheus in sync with Jetson VPN clients.
 - SSH access to VPN clients
 
 Install Ansible requirements:
+
 ```bash
 ansible-galaxy collection install -r collections/requirements.yaml
 ```
@@ -125,11 +127,24 @@ ansible-galaxy collection install -r collections/requirements.yaml
 ## 📦 Variable Config
 
 Edit in `group_vars/all.yaml`:
+
 ```yaml
 gcp_project_id: your-gcp-project
 gcp_service_account: ansible-secret-manager@your-project.iam.gserviceaccount.com
 gcp_credentials_file: /home/youruser/your-sa-key.json
 ```
+
+Jetson VPN client IPs are defined centrally in:
+
+```yaml
+# group_vars/vpn/clients_index.yaml
+clients:
+  client1: 10.9.0.30
+  client2: 10.9.0.31
+  # ...
+```
+
+This list is used by both VPN lifecycle playbooks and the Prometheus monitoring sync.
 
 ---
 
