@@ -121,12 +121,19 @@
 
 # 4.2.4. Enable and start services (Xorg + pulseaudio)
 # Xorg-pulseaudio is a system service
-- name: Enable xorg-pulseaudio systemd service
+- name: Reload systemd units for xorg-pulseaudio
+  become: true
+  systemd:
+    daemon_reload: true
+  when: not ansible_check_mode
+
+- name: Enable and start xorg-pulseaudio systemd service
   become: true
   systemd:
     name: xorg-pulseaudio.service
     enabled: true
     state: started
+  when: not ansible_check_mode
 
 # Pulseaudio is a user service; we must run systemctl --user as checkout
 - name: Start pulseaudio user service
