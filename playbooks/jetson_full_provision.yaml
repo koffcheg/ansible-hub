@@ -10,5 +10,6 @@
     - jetson_env_profile
     - jetson_xorg_pulseaudio
     - jetson_docker_engine
+    - jetson_docker_compose
     - jetson_exporter
     - jetson_aip_prereqs  

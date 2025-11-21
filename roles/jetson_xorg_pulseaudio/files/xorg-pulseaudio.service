@@ -1,7 +1,6 @@
 # /etc/systemd/system/xorg-pulseaudio.service
 [Unit]
 Description=Start Xorg & PulseAudio Without Display Manager
-Documentation=local:kiosk
 Wants=multi-user.target systemd-logind.service
 After=systemd-logind.service dbus.service network.target \
       systemd-user-sessions.service time-sync.target \
