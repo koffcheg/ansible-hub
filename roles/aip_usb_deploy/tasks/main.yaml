@@ -395,6 +395,7 @@
   when: aip_compose_enabled
   args:
     chdir: "{{ deploy_dir }}/{{ aip_compose_workdir_relpath }}"
+    executable: /bin/bash
   shell: |
     set -euo pipefail
     docker compose -f "{{ deploy_dir }}/{{ aip_compose_file_relpath }}" up -d --remove-orphans
