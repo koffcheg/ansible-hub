@@ -304,15 +304,19 @@
 
 # Push overlay -> Jetson staging (resumable via rsync --partial)
 - name: Sync overlay from controller to Jetson staging
-  when: not aip_content_dry_run
   delegate_to: localhost
   ansible.posix.synchronize:
-    src: "{{ aip_cs_controller_overlay_dir }}/"
-    dest: "{{ aip_cs_stage_dir }}/"
-    mode: push
-    archive: yes
+    src: "{{ aip_controller_overlay_dir }}/"
+    dest: "{{ aip_content_staging_dir }}/"
+    mode: push         # controller -> Jetson
+    archive: true
+    delete: false
+    partial: true      # resumable transfers
+    private_key: "{{ hostvars[inventory_hostname].ansible_ssh_private_key_file | default('/home/koffcheg/.ssh/ansible_hub') }}"
     rsync_opts:
-      - "--partial"
+      - "--inplace"
+      - "--no-times"
+
 
 # ==============================
 # 5. Verify checksums in staging
@@ -376,9 +380,13 @@
         path: "{{ aip_cs_dest_root }}"
       register: aip_cs_dest_stat
 
+    - name: Set timestamp for this content sync operation
+      set_fact:
+        aip_content_timestamp: "{{ lookup('pipe', 'date -u +%Y%m%dT%H%M%SZ') }}"
+
     - name: Prepare backup dir path
       set_fact:
-        aip_cs_backup_dir: "{{ aip_state_backups_dir }}/{{ bundle_id }}@{{ ansible_date_time.iso8601_basic }}"
+        aip_backup_dir: "{{ aip_content_backups_root }}/{{ bundle_id_normalized }}/{{ aip_content_timestamp }}"
 
     - name: Backup existing content if dest_root exists
       become: true
@@ -554,15 +562,17 @@
     - name: Mark failed receipt
       become: true
       copy:
-        dest: "{{ aip_state_receipts_dir }}/content-{{ bundle_id }}.failed"
-        owner: checkout
-        group: checkout
+        dest: "{{ aip_state_receipts_dir }}/content_sync_{{ bundle_id_normalized }}_{{ aip_content_timestamp | default('unknown_ts') }}.failed"
+        owner: "{{ aip_deploy_user }}"
+        group: "{{ aip_deploy_user }}"
         mode: "0644"
         content: |
-          bundle_id={{ bundle_id }}
-          dest_root={{ aip_cs_dest_root | default('unknown') }}
-          failed_at={{ ansible_date_time.iso8601 }}
+          bundle_id={{ bundle_id_normalized }}
+          manifest_url={{ manifest_url }}
+          dest_root={{ dest_root }}
+          failed_at={{ aip_content_timestamp | default('unknown') }}
           host={{ inventory_hostname }}
+          reason={{ aip_failure_reason | default('unknown') }}
 
   always:
     - name: Remove AIP content lock
