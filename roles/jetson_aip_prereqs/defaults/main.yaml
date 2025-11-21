@@ -1,0 +1,28 @@
+---
+aip_owner: checkout
+aip_group: checkout
+
+# AIP deploy env
+aip_deploy_env_dir: /etc/aip
+aip_deploy_env_path: /etc/aip/deploy.env
+
+# Where USB stager stages encrypted blobs and status files
+aip_deployments_root: "/home/{{ aip_owner }}/deployments"
+aip_deployments_staged_dir: "{{ aip_deployments_root }}/.staged"
+
+# AIP state dirs (for content sync / backups / receipts)
+aip_state_dir: /opt/aip/state
+aip_stage_root: "{{ aip_state_dir }}/stage"
+aip_backups_root: "{{ aip_state_dir }}/backups"
+aip_receipts_root: "{{ aip_state_dir }}/receipts"
+
+# USB label
+aip_usb_label: AIP_DEPLOY
+
+# systemd paths
+aip_usb_stager_script_path: /usr/local/bin/aip-usb-stage.sh
+aip_usb_stager_service_path: /etc/systemd/system/aip-usb-stage.service
+aip_usb_stager_path_unit_path: /etc/systemd/system/aip-usb-stage.path
+
+# Default blob name (override per host later)
+aip_blob_name: ""

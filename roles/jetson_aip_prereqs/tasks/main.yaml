@@ -1,0 +1,86 @@
+---
+- name: Ensure /etc/aip directory exists
+  become: true
+  file:
+    path: "{{ aip_deploy_env_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install /etc/aip/deploy.env
+  become: true
+  template:
+    src: deploy.env.j2
+    dest: "{{ aip_deploy_env_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Ensure deployments and staged directories exist
+  become: true
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ aip_owner }}"
+    group: "{{ aip_group }}"
+    mode: "0755"
+  loop:
+    - "{{ aip_deployments_root }}"
+    - "{{ aip_deployments_staged_dir }}"
+
+- name: Ensure AIP state directories exist (for content sync)
+  become: true
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ aip_owner }}"
+    group: "{{ aip_group }}"
+    mode: "0755"
+  loop:
+    - "{{ aip_state_dir }}"
+    - "{{ aip_stage_root }}"
+    - "{{ aip_backups_root }}"
+    - "{{ aip_receipts_root }}"
+
+- name: Install AIP USB stager script
+  become: true
+  template:
+    src: aip-usb-stage.sh.j2
+    dest: "{{ aip_usb_stager_script_path }}"
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install AIP USB stager service unit
+  become: true
+  template:
+    src: aip-usb-stage.service.j2
+    dest: "{{ aip_usb_stager_service_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install AIP USB stager path unit
+  become: true
+  template:
+    src: aip-usb-stage.path.j2
+    dest: "{{ aip_usb_stager_path_unit_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Reload systemd units for AIP stager
+  become: true
+  systemd:
+    daemon_reload: true
+
+- name: Enable AIP USB stager service and path
+  become: true
+  systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - aip-usb-stage.service
+    - aip-usb-stage.path

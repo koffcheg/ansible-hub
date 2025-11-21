@@ -1,0 +1,13 @@
+[Unit]
+Description=AIP USB Stager
+After=multi-user.target
+
+[Service]
+Type=oneshot
+User={{ aip_owner }}
+Group={{ aip_group }}
+ExecStart={{ aip_usb_stager_script_path }}
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

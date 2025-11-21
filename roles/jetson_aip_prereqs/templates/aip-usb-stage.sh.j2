@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+AIP_ENV_FILE="{{ aip_deploy_env_path }}"
+DEPLOY_ROOT="{{ aip_deployments_root }}"
+STAGED_DIR="{{ aip_deployments_staged_dir }}"
+USB_LABEL="{{ aip_usb_label }}"
+
+# Load BLOB_NAME from /etc/aip/deploy.env if present
+if [[ -f "$AIP_ENV_FILE" ]]; then
+  # shellcheck disable=SC1090
+  source "$AIP_ENV_FILE"
+fi
+
+if [[ -z "${BLOB_NAME:-}" ]]; then
+  echo "[aip-usb-stage] BLOB_NAME is not set; nothing to stage."
+  exit 0
+fi
+
+mkdir -p "$DEPLOY_ROOT" "$STAGED_DIR"
+
+# Find the AIP_DEPLOY mount point
+USB_MP="$(find /media -maxdepth 2 -type d -name "$USB_LABEL" 2>/dev/null | head -n1 || true)"
+
+if [[ -z "$USB_MP" ]]; then
+  echo "[aip-usb-stage] USB volume '$USB_LABEL' not found under /media."
+  exit 0
+fi
+
+SRC="$USB_MP/$BLOB_NAME"
+DEST="$DEPLOY_ROOT/$BLOB_NAME"
+STATUS_FILE="$STAGED_DIR/$BLOB_NAME.status"
+
+if [[ ! -f "$SRC" ]]; then
+  echo "[aip-usb-stage] Blob '$SRC' not found on USB."
+  exit 1
+fi
+
+echo "[aip-usb-stage] Staging '$SRC' -> '$DEST'..."
+cp -f "$SRC" "$DEST"
+
+chown -R "{{ aip_owner }}:{{ aip_group }}" "$DEPLOY_ROOT"
+
+echo "staged" > "$STATUS_FILE"
+chown "{{ aip_owner }}:{{ aip_group }}" "$STATUS_FILE"
+
+echo "[aip-usb-stage] Done. Status written to $STATUS_FILE"
