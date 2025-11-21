@@ -1,6 +1,4 @@
 ---
-# roles/aip_content_sync/tasks/main.yml
-
 # ===============================
 # 0. Basic validation & variables
 # ===============================
@@ -10,9 +8,10 @@
     msg: "aip_content_sync: 'bundle_id' is required (e.g. -e \"bundle_id=global-settings-v1\")."
   when: bundle_id is not defined or bundle_id | trim | length == 0
 
-- name: Normalize bundle_id
+- name: Normalize bundle_id and derive normalized id
   set_fact:
     bundle_id: "{{ bundle_id | trim }}"
+    bundle_id_normalized: "{{ (bundle_id | trim) | regex_replace('[^A-Za-z0-9_.-]', '_') }}"
 
 # Host-specific temp root on controller
 - name: Set controller tmp paths for this bundle
@@ -22,8 +21,8 @@
     aip_cs_controller_overlay_dir: "{{ aip_cs_controller_tmp_root }}/{{ inventory_hostname }}/{{ bundle_id }}/overlay"
     aip_cs_controller_manifest_path: "{{ aip_cs_controller_tmp_root }}/{{ inventory_hostname }}/{{ bundle_id }}/manifest.yml"
 
-# ============
-# 1. Manifest
+# ============ 
+# 1. Manifest 
 # ============
 
 # 1.1. Try explicit manifest_url (if caller provided it); otherwise we will auto-discover.
@@ -105,7 +104,9 @@
     aip_cs_post: "{{ aip_cs_manifest.post | default([]) }}"
     aip_cs_base_url: >-
       {{
-        (aip_cs_manifest.base_url | default('gs://' ~ aip_cs_bucket ~ '/content/' ~ bundle_type ~ '/' ~ bundle_id))
+        (aip_cs_manifest.base_url
+          | default('gs://' ~ aip_cs_bucket ~ '/content/' ~ bundle_type ~ '/' ~ bundle_id)
+        )
         | replace('YOUR_BUCKET', aip_cs_bucket)
       }}
 
@@ -185,7 +186,6 @@
     aip_cs_precedence: "{{ aip_cs_rules.precedence | default(['base','region','warehouse','store','device']) }}"
 
 # 3.x. Sequentially rsync from base + overrides into overlay dir.
-# We keep error handling soft for non-existent override folders.
 
 - name: Sync base content from GCS into overlay
   delegate_to: localhost
@@ -298,25 +298,24 @@
   file:
     path: "{{ aip_cs_stage_dir }}"
     state: directory
-    owner: checkout
-    group: checkout
+    owner: "{{ aip_deploy_user }}"
+    group: "{{ aip_deploy_user }}"
     mode: "0755"
 
 # Push overlay -> Jetson staging (resumable via rsync --partial)
 - name: Sync overlay from controller to Jetson staging
   delegate_to: localhost
   ansible.posix.synchronize:
-    src: "{{ aip_controller_overlay_dir }}/"
-    dest: "{{ aip_content_staging_dir }}/"
-    mode: push         # controller -> Jetson
+    src: "{{ aip_cs_controller_overlay_dir }}/"
+    dest: "{{ aip_cs_stage_dir }}/"
+    mode: push
     archive: true
     delete: false
-    partial: true      # resumable transfers
+    partial: true
     private_key: "{{ hostvars[inventory_hostname].ansible_ssh_private_key_file | default('/home/koffcheg/.ssh/ansible_hub') }}"
     rsync_opts:
       - "--inplace"
       - "--no-times"
-
 
 # ==============================
 # 5. Verify checksums in staging
@@ -324,8 +323,7 @@
 
 - name: Verify checksums in staging if sha256.lst present
   become: true
-  when:
-    - not aip_content_dry_run
+  when: not aip_content_dry_run
   args:
     chdir: "{{ aip_cs_stage_dir }}"
   shell: |
@@ -343,6 +341,11 @@
 # ==============================================
 
 - block:
+    # 6.0. Set timestamp for this operation
+    - name: Set timestamp for this content sync operation
+      set_fact:
+        aip_content_timestamp: "{{ lookup('pipe', 'date -u +%Y%m%dT%H%M%SZ') }}"
+
     # 6.1. Acquire simple lock
     - name: Acquire AIP content lock
       become: true
@@ -373,6 +376,11 @@
             )
           }}
 
+    - name: Fail if dest_root is not defined in manifest.dest.root
+      fail:
+        msg: "aip_content_sync: manifest.dest.root is required but missing."
+      when: aip_cs_dest_root is not defined or aip_cs_dest_root | trim | length == 0
+
     # 6.3. Backup existing dest_root (if present)
     - name: Check if dest_root exists
       become: true
@@ -380,19 +388,15 @@
         path: "{{ aip_cs_dest_root }}"
       register: aip_cs_dest_stat
 
-    - name: Set timestamp for this content sync operation
-      set_fact:
-        aip_content_timestamp: "{{ lookup('pipe', 'date -u +%Y%m%dT%H%M%SZ') }}"
-
     - name: Prepare backup dir path
       set_fact:
-        aip_backup_dir: "{{ aip_content_backups_root }}/{{ bundle_id_normalized }}/{{ aip_content_timestamp }}"
+        aip_cs_backup_dir: "{{ aip_state_backups_dir }}/{{ bundle_id_normalized }}/{{ aip_content_timestamp }}"
 
     - name: Backup existing content if dest_root exists
       become: true
       when: aip_cs_dest_stat.stat.exists
       shell: |
-        mkdir -p "{{ aip_state_backups_dir }}"
+        mkdir -p "{{ aip_cs_backup_dir }}"
         rsync -a "{{ aip_cs_dest_root }}/" "{{ aip_cs_backup_dir }}/"
       register: aip_cs_backup_rs
       changed_when: aip_cs_backup_rs.rc == 0
@@ -400,10 +404,13 @@
     # Optional: keep only last 2 backups for this bundle
     - name: Prune old backups (keep last 2)
       become: true
+      when: aip_cs_dest_stat.stat.exists
       shell: |
         set -e
-        cd "{{ aip_state_backups_dir }}"
-        ls -1dt {{ bundle_id }}@* 2>/dev/null | tail -n +3 | xargs -r rm -rf --
+        if [ -d "{{ aip_state_backups_dir }}/{{ bundle_id_normalized }}" ]; then
+          cd "{{ aip_state_backups_dir }}/{{ bundle_id_normalized }}"
+          ls -1dt */ 2>/dev/null | tail -n +3 | xargs -r rm -rf --
+        fi
       changed_when: false
 
     # 6.4. Compute new file list from staging (relative paths)
@@ -474,16 +481,17 @@
         state: absent
       loop: "{{ aip_cs_extraneous_files }}"
 
-    # 6.8. Promote from staging to dest (rsync)
+    # 6.8. Ensure dest_root exists
     - name: Ensure dest_root exists
       become: true
       file:
         path: "{{ aip_cs_dest_root }}"
         state: directory
-        owner: checkout
-        group: checkout
+        owner: "{{ aip_deploy_user }}"
+        group: "{{ aip_deploy_user }}"
         mode: "0755"
 
+    # 6.9. Promote from staging to dest (rsync)
     - name: Promote staged content into dest_root
       become: true
       when: not aip_content_dry_run
@@ -492,7 +500,7 @@
       register: aip_cs_promote_rs
       changed_when: aip_cs_promote_rs.rc == 0
 
-    # 6.9. Post actions (docker compose restart, etc.)
+    # 6.10. Post actions (docker compose restart, etc.)
     - name: Run compose restart post-actions (if defined)
       become: true
       when:
@@ -513,24 +521,24 @@
           register: aip_cs_post_compose
           changed_when: aip_cs_post_compose.rc == 0
 
-    # 6.10. Write managed index in dest_root
+    # 6.11. Write managed index in dest_root
     - name: Write new managed index to dest_root
       become: true
       copy:
         dest: "{{ aip_cs_dest_root }}/.aip-managed-{{ bundle_id }}.json"
-        owner: checkout
-        group: checkout
+        owner: "{{ aip_deploy_user }}"
+        group: "{{ aip_deploy_user }}"
         mode: "0644"
         content: |
           {{ {'bundle_id': bundle_id, 'files': aip_cs_new_files} | to_nice_json }}
 
-    # 6.11. Write sync receipt
+    # 6.12. Write sync receipt
     - name: Write content sync receipt
       become: true
       copy:
         dest: "{{ aip_state_receipts_dir }}/content-{{ bundle_id }}.receipt"
-        owner: checkout
-        group: checkout
+        owner: "{{ aip_deploy_user }}"
+        group: "{{ aip_deploy_user }}"
         mode: "0644"
         content: |
           bundle_id={{ bundle_id }}
@@ -541,7 +549,7 @@
           store={{ store_slug }}
           device={{ device_slug }}
           prune_extraneous={{ prune_extraneous }}
-          synced_at={{ ansible_date_time.iso8601 }}
+          synced_at={{ aip_content_timestamp }}
           host={{ inventory_hostname }}
 
   rescue:
@@ -569,7 +577,7 @@
         content: |
           bundle_id={{ bundle_id_normalized }}
           manifest_url={{ manifest_url }}
-          dest_root={{ dest_root }}
+          dest_root={{ aip_cs_dest_root | default('unknown_dest') }}
           failed_at={{ aip_content_timestamp | default('unknown') }}
           host={{ inventory_hostname }}
           reason={{ aip_failure_reason | default('unknown') }}

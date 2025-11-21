@@ -19,6 +19,7 @@ aip_cs_controller_tmp_root: "/tmp/aip_content"
 
 # Where AIP deployments live on the Jetson (already used by aip_usb_deploy)
 aip_deploy_root: "/home/checkout/deployments"
+aip_deploy_user: "checkout"
 
 # AIP state roots (already created by jetson_aip_prereqs)
 aip_state_root: "/opt/aip/state"
