@@ -1,0 +1,12 @@
+---
+- name: AIP USB verified deploy
+  hosts: clients
+  become: true
+
+#  vars:
+    # Optionally override per run:
+    # aip_blob_name: "aip-ecopod-2025.10.15-v1.0.0.tar.zst.gpg"
+    # aip_usb_mock_mode: true
+
+  roles:
+    - aip_usb_deploy

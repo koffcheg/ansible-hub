@@ -1,0 +1,43 @@
+---
+# Where deployments live on the Jetson
+aip_deploy_root: /home/checkout/deployments
+aip_deploy_user: checkout
+
+# Blob name (ciphertext file name, e.g. aip-ecopod-2025.10.15-v1.0.0.tar.zst.gpg)
+# Prefer setting this in host_vars/group_vars as `aip_blob_name`.
+# If left empty, the role will try to read it from /etc/aip/deploy.env on the Jetson.
+aip_blob_name: ""
+
+# GCP project + bucket holding .sha256 and .sha256.minisig
+aip_gcp_project: "deployment-setup-lab-01"
+aip_usb_bucket: "content-deployment-lab-01"  # contains deployments/<BLOB_NAME>/... :contentReference[oaicite:3]{index=3}
+
+# Controller-side temp dir for AIP artifacts
+aip_controller_tmp_root: /tmp/aip
+
+# Minisign public key on controller
+aip_minisign_pubkey_path_controller: /etc/aip/minisign.pub
+
+# Secret Manager names for GPG material :contentReference[oaicite:4]{index=4}
+aip_gpg_private_key_secret: "aip/deploy/gpg/private_key"
+aip_gpg_private_key_pass_secret: "aip/deploy/gpg/private_key_pass"
+aip_gpg_symmetric_pass_secret: "aip/deploy/gpg/symmetric_pass"
+
+# Decrypt mode: "symmetric" (use symmetric_pass) or "asymmetric" (import private_key + pass)
+aip_decrypt_mode: "symmetric"
+
+# Jetson AIP state dirs (already created by jetson_aip_prereqs)
+aip_state_root: /opt/aip/state
+aip_state_stage_dir: "{{ aip_state_root }}/stage"
+aip_state_receipts_dir: "{{ aip_state_root }}/receipts"
+aip_state_backups_dir: "{{ aip_state_root }}/backups"
+
+# Docker compose deployment
+aip_compose_enabled: true
+# Path to docker-compose file relative to extracted version dir
+aip_compose_file_relpath: docker-compose.yml
+# Working directory relative to extracted version dir (usually ".")
+aip_compose_workdir_relpath: "."
+
+# Optional: mock mode (for early testing without real USB/GCS/GPG)
+aip_usb_mock_mode: false
