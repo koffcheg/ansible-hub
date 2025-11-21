@@ -1,7 +1,7 @@
 ---
-# roles/aip_usb_deploy/tasks/main.yaml
+# roles/aip_usb_deploy/tasks/main.yml
 
-# 0) Make sure /etc/aip/deploy.env exists when we need it
+# 0) Discover blob_name (from extra-var or /etc/aip/deploy.env)
 - name: Ensure /etc/aip/deploy.env exists
   become: true
   stat:
@@ -19,7 +19,6 @@
     - not aip_deploy_env.stat.exists
     - (aip_blob_name is not defined or aip_blob_name | trim | length == 0)
 
-# 1) Optionally read BLOB_NAME from /etc/aip/deploy.env
 - name: Read BLOB_NAME from /etc/aip/deploy.env if aip_blob_name not provided
   become: true
   command: "awk -F= '/^BLOB_NAME=/{print $2}' /etc/aip/deploy.env"
@@ -29,15 +28,11 @@
     - aip_deploy_env.stat.exists
     - aip_blob_name is not defined or aip_blob_name | trim | length == 0
 
-# 2) Decide which blob_name we actually use
-
-# Prefer the explicit extra var
 - name: Set effective blob_name from extra var
   set_fact:
     blob_name: "{{ aip_blob_name | trim }}"
   when: aip_blob_name is defined and aip_blob_name | trim | length > 0
 
-# Fall back to /etc/aip/deploy.env
 - name: Set effective blob_name from /etc/aip/deploy.env
   set_fact:
     blob_name: "{{ aip_blob_from_env.stdout | trim }}"
@@ -47,7 +42,6 @@
     - aip_blob_from_env.stdout is defined
     - aip_blob_from_env.stdout | trim | length > 0
 
-# Hard fail if we still don't have a name
 - name: Fail if blob_name could not be determined
   fail:
     msg: >
@@ -55,59 +49,89 @@
       Provide -e "aip_blob_name=..." OR set BLOB_NAME=... in /etc/aip/deploy.env.
   when: blob_name is not defined or blob_name | trim | length == 0
 
-- name: In mock mode, ensure a dummy blob exists in staged directory
-  become: true
-  become_user: "{{ aip_deploy_user }}"
-  copy:
-    dest: "{{ aip_deploy_root }}/.staged/{{ blob_name }}"
-    content: "MOCK AIP BLOB {{ blob_name }} - not a real archive\n"
-  when:
-    - aip_usb_mock_mode | default(false) | bool
-
-- name: Set effective blob_name fact
-  set_fact:
-    blob_name: >-
-      {{ (aip_blob_name | length > 0)
-         | ternary(aip_blob_name, aip_blob_from_env.stdout | trim) }}
-
-- name: Fail if blob_name is still empty
-  fail:
-    msg: "AIP USB deploy: blob_name is not set. Set 'aip_blob_name' in inventory or BLOB_NAME in /etc/aip/deploy.env."
-  when: blob_name | length == 0
-
+# 0.1) Derive plaintext tar name and deploy_dir
 - name: Derive plaintext archive name and deploy_dir
   set_fact:
-    plaintext_tar_name: "{{ blob_name | regex_replace('\\\\.gpg$', '') }}"
-    deploy_dir: "{{ aip_deploy_root }}/{{ blob_name | regex_replace('\\\\.gpg$', '') }}"
+    plaintext_tar_name: "{{ blob_name | regex_replace('\\.gpg$', '') }}"
+    deploy_dir: "{{ aip_deploy_root }}/{{ blob_name | regex_replace('\\.gpg$', '') }}"
+
+# 0.2) Mock mode – create dummy cipher blob and mark as staged
+- name: Mock mode - create dummy staged blob and set cipher_src_path
+  when: aip_usb_mock_mode | default(false) | bool
+  become: true
+  block:
+    - name: Ensure deploy_root and .staged directories exist
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ aip_deploy_user }}"
+        group: "{{ aip_deploy_user }}"
+        mode: "0755"
+      loop:
+        - "{{ aip_deploy_root }}"
+        - "{{ aip_deploy_root }}/.staged"
+
+    - name: Write dummy cipher blob in deploy_root
+      copy:
+        dest: "{{ aip_deploy_root }}/{{ blob_name }}"
+        content: "MOCK AIP BLOB {{ blob_name }} - not a real archive\n"
+        owner: "{{ aip_deploy_user }}"
+        group: "{{ aip_deploy_user }}"
+        mode: "0644"
+
+    - name: Write staged status file for dummy blob
+      copy:
+        dest: "{{ aip_deploy_root }}/.staged/{{ blob_name }}.status"
+        content: "staged\n"
+        owner: "{{ aip_deploy_user }}"
+        group: "{{ aip_deploy_user }}"
+        mode: "0644"
+
+    - name: Set cipher_src_path fact for mock mode
+      set_fact:
+        cipher_src_path: "{{ aip_deploy_root }}/{{ blob_name }}"
+
+# 1) Determine cipher_src_path in real mode (USB first, then home fallback)
 
 - name: Detect AIP_DEPLOY USB mount point
+  when: not (aip_usb_mock_mode | default(false) | bool)
   become: true
   shell: "find /media -maxdepth 2 -type d -name 'AIP_DEPLOY' | head -n1"
   register: usb_mp
   changed_when: false
 
 - name: Check if USB stager reported success (if USB is present)
+  when:
+    - not (aip_usb_mock_mode | default(false) | bool)
+    - usb_mp.stdout is defined
+    - usb_mp.stdout | trim != ""
   become: true
-  when: usb_mp.stdout != ""
   command: "cat {{ aip_deploy_root }}/.staged/{{ blob_name }}.status"
   register: staged_status
+  changed_when: false
   failed_when: "'staged' not in staged_status.stdout"
 
 - name: Set cipher_src_path from staged USB blob
-  when: usb_mp.stdout != ""
+  when:
+    - not (aip_usb_mock_mode | default(false) | bool)
+    - usb_mp.stdout is defined
+    - usb_mp.stdout | trim != ""
   set_fact:
     cipher_src_path: "{{ aip_deploy_root }}/{{ blob_name }}"
 
-- name: "Fallback - check for blob in checkout home"
+- name: Fallback - check for blob in checkout home
+  when:
+    - not (aip_usb_mock_mode | default(false) | bool)
+    - cipher_src_path is not defined
   become: true
-  when: usb_mp.stdout == ""
   stat:
     path: "/home/{{ aip_deploy_user }}/{{ blob_name }}"
   register: fallback_blob
 
 - name: Set cipher_src_path from fallback
   when:
-    - usb_mp.stdout == ""
+    - not (aip_usb_mock_mode | default(false) | bool)
+    - cipher_src_path is not defined
     - fallback_blob.stat.exists
   set_fact:
     cipher_src_path: "/home/{{ aip_deploy_user }}/{{ blob_name }}"
@@ -120,6 +144,8 @@
       '{{ aip_deploy_root }}/{{ blob_name }}' (staged from USB) or
       '/home/{{ aip_deploy_user }}/{{ blob_name }}'.
 
+# 2) Controller-side: temp dir & checksum artifacts (real mode only)
+
 - name: Ensure controller-side temp dir exists
   delegate_to: localhost
   run_once: true
@@ -131,7 +157,7 @@
 - name: Download checksum file from GCS
   delegate_to: localhost
   run_once: true
-  when: not aip_usb_mock_mode
+  when: not (aip_usb_mock_mode | default(false) | bool)
   environment:
     CLOUDSDK_CORE_PROJECT: "{{ aip_gcp_project }}"
   command: >
@@ -143,7 +169,7 @@
 - name: Download checksum signature (.minisig) from GCS
   delegate_to: localhost
   run_once: true
-  when: not aip_usb_mock_mode
+  when: not (aip_usb_mock_mode | default(false) | bool)
   environment:
     CLOUDSDK_CORE_PROJECT: "{{ aip_gcp_project }}"
   command: >
@@ -155,11 +181,13 @@
 - name: Verify checksum signature with minisign
   delegate_to: localhost
   run_once: true
-  when: not aip_usb_mock_mode
+  when: not (aip_usb_mock_mode | default(false) | bool)
   command: >
     minisign -Vm "{{ aip_controller_tmp_root }}/{{ inventory_hostname }}/{{ blob_name }}/{{ blob_name }}.sha256"
     -P "{{ aip_minisign_pubkey_path_controller }}"
   changed_when: false
+
+# 3) Controller-side: fetch GPG secrets (real mode only)
 
 - name: Ensure controller-side secrets dir exists
   delegate_to: localhost
@@ -174,7 +202,7 @@
   run_once: true
   when:
     - aip_decrypt_mode == 'asymmetric'
-    - not aip_usb_mock_mode
+    - not (aip_usb_mock_mode | default(false) | bool)
   no_log: true
   environment:
     CLOUDSDK_CORE_PROJECT: "{{ aip_gcp_project }}"
@@ -188,7 +216,7 @@
   run_once: true
   when:
     - aip_decrypt_mode == 'asymmetric'
-    - not aip_usb_mock_mode
+    - not (aip_usb_mock_mode | default(false) | bool)
   no_log: true
   environment:
     CLOUDSDK_CORE_PROJECT: "{{ aip_gcp_project }}"
@@ -202,7 +230,7 @@
   run_once: true
   when:
     - aip_decrypt_mode == 'symmetric'
-    - not aip_usb_mock_mode
+    - not (aip_usb_mock_mode | default(false) | bool)
   no_log: true
   environment:
     CLOUDSDK_CORE_PROJECT: "{{ aip_gcp_project }}"
@@ -211,9 +239,11 @@
     --secret="{{ aip_gpg_symmetric_pass_secret }}"
     --out-file="{{ aip_controller_tmp_root }}/{{ inventory_hostname }}/{{ blob_name }}/secrets/gpg-symmetric.pass"
 
+# 4) Push checksum & secrets to Jetson (real mode only)
+
 - name: Copy checksum file to Jetson
   become: true
-  when: not aip_usb_mock_mode
+  when: not (aip_usb_mock_mode | default(false) | bool)
   copy:
     src: "{{ aip_controller_tmp_root }}/{{ inventory_hostname }}/{{ blob_name }}/{{ blob_name }}.sha256"
     dest: "{{ aip_state_stage_dir }}/{{ blob_name }}.sha256"
@@ -223,7 +253,7 @@
   become: true
   when:
     - aip_decrypt_mode == 'symmetric'
-    - not aip_usb_mock_mode
+    - not (aip_usb_mock_mode | default(false) | bool)
   no_log: true
   copy:
     src: "{{ aip_controller_tmp_root }}/{{ inventory_hostname }}/{{ blob_name }}/secrets/gpg-symmetric.pass"
@@ -234,7 +264,7 @@
   become: true
   when:
     - aip_decrypt_mode == 'asymmetric'
-    - not aip_usb_mock_mode
+    - not (aip_usb_mock_mode | default(false) | bool)
   no_log: true
   copy:
     src: "{{ item.src }}"
@@ -246,9 +276,11 @@
     - src: "{{ aip_controller_tmp_root }}/{{ inventory_hostname }}/{{ blob_name }}/secrets/gpg-private.pass"
       dest: "{{ aip_state_stage_dir }}/gpg-private.pass"
 
+# 5) Verify checksums and decrypt on Jetson (real mode only)
+
 - name: Verify SHA256 of the local ciphertext blob
   become: true
-  when: not aip_usb_mock_mode
+  when: not (aip_usb_mock_mode | default(false) | bool)
   command: "sha256sum --check {{ aip_state_stage_dir }}/{{ blob_name }}.sha256"
   args:
     chdir: "{{ cipher_src_path | dirname }}"
@@ -275,7 +307,7 @@
   become: true
   when:
     - aip_decrypt_mode == 'symmetric'
-    - not aip_usb_mock_mode
+    - not (aip_usb_mock_mode | default(false) | bool)
   no_log: true
   command: >
     gpg --batch --yes
@@ -287,7 +319,7 @@
   become: true
   when:
     - aip_decrypt_mode == 'asymmetric'
-    - not aip_usb_mock_mode
+    - not (aip_usb_mock_mode | default(false) | bool)
   no_log: true
   command: >
     gpg --batch --yes
@@ -298,7 +330,7 @@
   become: true
   when:
     - aip_decrypt_mode == 'asymmetric'
-    - not aip_usb_mock_mode
+    - not (aip_usb_mock_mode | default(false) | bool)
   no_log: true
   command: >
     gpg --batch --yes
@@ -307,16 +339,18 @@
 
 - name: Extract decrypted tar.zst into version dir (real mode)
   become: true
-  when: not aip_usb_mock_mode
+  when: not (aip_usb_mock_mode | default(false) | bool)
   args:
     chdir: "{{ deploy_dir }}"
   shell: |
     set -euo pipefail
     tar -I zstd -xf "{{ aip_state_stage_dir }}/{{ plaintext_tar_name }}"
 
+# 6) Mock mode – create dummy deployment tree
+
 - name: Mock mode – create dummy deployment tree
   become: true
-  when: aip_usb_mock_mode
+  when: aip_usb_mock_mode | default(false) | bool
   block:
     - name: Ensure mock deploy dir exists
       file:
@@ -338,6 +372,8 @@
             hello-aip:
               image: alpine:3
               command: ["sh", "-c", "echo 'Hello from AIP mock deployment'; sleep 3600"]
+
+# 7) Docker images + compose
 
 - name: Load Docker images from archive (if any *.tar)
   become: true
@@ -363,6 +399,8 @@
     set -euo pipefail
     docker compose -f "{{ deploy_dir }}/{{ aip_compose_file_relpath }}" up -d --remove-orphans
 
+# 8) Update symlink & receipt
+
 - name: Update 'current' symlink to point to the new version
   become: true
   file:
@@ -384,6 +422,8 @@
       deploy_dir={{ deploy_dir }}
       deployed_at={{ ansible_date_time.iso8601 }}
       host={{ inventory_hostname }}
+
+# 9) Cleanup secrets and temp files
 
 - name: Remove secrets and temp files from Jetson
   become: true

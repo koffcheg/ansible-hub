@@ -10,7 +10,8 @@ aip_blob_name: ""
 
 # GCP project + bucket holding .sha256 and .sha256.minisig
 aip_gcp_project: "deployment-setup-lab-01"
-aip_usb_bucket: "content-deployment-lab-01"  # contains deployments/<BLOB_NAME>/... :contentReference[oaicite:3]{index=3}
+# bare bucket name; full URI is built as gs://{{ aip_usb_bucket }}
+aip_usb_bucket: "content-deployment-lab-01"
 
 # Controller-side temp dir for AIP artifacts
 aip_controller_tmp_root: /tmp/aip
@@ -18,7 +19,7 @@ aip_controller_tmp_root: /tmp/aip
 # Minisign public key on controller
 aip_minisign_pubkey_path_controller: /etc/aip/minisign.pub
 
-# Secret Manager names for GPG material :contentReference[oaicite:4]{index=4}
+# Secret Manager names for GPG material
 aip_gpg_private_key_secret: "aip/deploy/gpg/private_key"
 aip_gpg_private_key_pass_secret: "aip/deploy/gpg/private_key_pass"
 aip_gpg_symmetric_pass_secret: "aip/deploy/gpg/symmetric_pass"
@@ -39,5 +40,5 @@ aip_compose_file_relpath: docker-compose.yml
 # Working directory relative to extracted version dir (usually ".")
 aip_compose_workdir_relpath: "."
 
-# Optional: mock mode (for early testing without real USB/GCS/GPG)
+# Mock mode (for early testing without real USB/GCS/GPG)
 aip_usb_mock_mode: false
