@@ -6,7 +6,7 @@ jetson_docker_version: "26.1.3"
 jetson_docker_arch: "aarch64"
 
 # Download URL for static tarball (update if you use another source)
-jetson_docker_tarball_url: "https://download.docker.com/linux/static/stable/{{ jetson_docker_arch }}/docker-{{ jetson_docker_version }}.tgz"
+jetson_docker_url: "https://download.docker.com/linux/static/stable/{{ jetson_docker_arch }}/docker-{{ jetson_docker_version }}.tgz"
 
 # Where to install the binaries
 jetson_docker_bin_dir: "/usr/local/bin"
