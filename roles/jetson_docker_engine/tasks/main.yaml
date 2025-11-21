@@ -15,27 +15,33 @@
   become: true
   get_url:
     url: "{{ jetson_docker_url }}"
-    dest: /tmp/docker-{{ jetson_docker_version }}.tgz
+    dest: "/tmp/docker-{{ jetson_docker_version }}.tgz"
     mode: "0644"
+
+- name: Ensure Docker temp directory exists
+  become: true
+  file:
+    path: "/tmp/docker-{{ jetson_docker_version }}"
+    state: directory
+    mode: "0755"
 
 - name: Extract Docker
   become: true
   unarchive:
-    src: /tmp/docker-{{ jetson_docker_version }}.tgz
-    dest: /tmp/docker-{{ jetson_docker_version }}
+    src: "/tmp/docker-{{ jetson_docker_version }}.tgz"
+    dest: "/tmp/docker-{{ jetson_docker_version }}"
     remote_src: true
-    creates: /tmp/docker-{{ jetson_docker_version }}/docker
+    creates: "/tmp/docker-{{ jetson_docker_version }}/docker"
 
 - name: Install Docker binaries to /usr/local/bin
   become: true
   copy:
-    src: "{{ docker_bin }}"
+    src: "/tmp/docker-{{ jetson_docker_version }}/docker/"
     dest: /usr/local/bin/
+    owner: root
+    group: root
     mode: "0755"
-  with_fileglob:
-    - "/tmp/docker-{{ jetson_docker_version }}/docker/*"
-  loop_control:
-    loop_var: docker_bin
+    remote_src: true
 
 - name: Ensure docker.service is enabled and running
   become: true
@@ -80,6 +86,7 @@
   systemd:
     name: docker
     state: restarted
+  ignore_errors: true
 
 # TLS certs for docker as per doc
 - name: Create /opt/certs directory
