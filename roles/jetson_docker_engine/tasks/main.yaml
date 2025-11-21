@@ -29,7 +29,7 @@
 - name: Install Docker binaries to /usr/local/bin
   become: true
   copy:
-    src: "/tmp/docker-{{ jetson_docker_version }}/docker/"
+    src: "{{ docker_bin }}"
     dest: /usr/local/bin/
     mode: "0755"
   with_fileglob:
