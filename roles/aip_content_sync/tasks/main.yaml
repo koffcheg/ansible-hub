@@ -1,4 +1,3 @@
----
 # ===============================
 # 0. Basic validation & variables
 # ===============================
@@ -21,8 +20,8 @@
     aip_cs_controller_overlay_dir: "{{ aip_cs_controller_tmp_root }}/{{ inventory_hostname }}/{{ bundle_id }}/overlay"
     aip_cs_controller_manifest_path: "{{ aip_cs_controller_tmp_root }}/{{ inventory_hostname }}/{{ bundle_id }}/manifest.yml"
 
-# ============ 
-# 1. Manifest 
+# ============
+# 1. Manifest
 # ============
 
 # 1.1. Try explicit manifest_url (if caller provided it); otherwise we will auto-discover.
@@ -187,6 +186,7 @@
 
 # 3.x. Sequentially rsync from base + overrides into overlay dir.
 
+# IMPORTANT: keep "package/" folder so tests see app/.../package/*
 - name: Sync base content from GCS into overlay
   delegate_to: localhost
   when: "'base' in aip_cs_precedence"
@@ -195,7 +195,7 @@
   command: >
     gsutil -m rsync -r
     "{{ aip_cs_base_url }}/{{ aip_cs_src_base_rel }}"
-    "{{ aip_cs_controller_overlay_dir }}/"
+    "{{ aip_cs_controller_overlay_dir }}/{{ aip_cs_src_base_rel }}"
   register: aip_cs_base_rsync
   changed_when: true
 
@@ -263,7 +263,7 @@
   changed_when: aip_cs_dev_rsync.rc == 0
   failed_when: false
 
-# Checksums list (for Scenario 6)
+# Checksums list (for Scenario 6) – keep it in checksums/sha256.lst
 - name: Download checksum list from GCS (sha256.lst) if defined
   delegate_to: localhost
   when: aip_cs_src_checksums_rel | length > 0
@@ -272,7 +272,7 @@
   command: >
     gsutil cp
     "{{ aip_cs_base_url }}/{{ aip_cs_src_checksums_rel }}"
-    "{{ aip_cs_controller_overlay_dir }}/sha256.lst"
+    "{{ aip_cs_controller_overlay_dir }}/checksums/sha256.lst"
   register: aip_cs_checksums_cp
   changed_when: true
 
@@ -284,7 +284,7 @@
   set_fact:
     aip_cs_stage_dir: "{{ aip_state_stage_dir }}/{{ bundle_id }}@{{ target_version }}"
     aip_cs_lock_path: "{{ aip_state_root }}/locks/aip-content-{{ bundle_id }}.lock"
-    aip_cs_managed_index_path: "{{ aip_state_stage_dir }}/.aip-managed-{{ bundle_id }}.json"
+    aip_cs_managed_index_path: "{{ aip_cs_stage_dir }}/.aip-managed-{{ bundle_id }}.json"
 
 - name: Ensure AIP locks dir exists
   become: true
@@ -311,10 +311,10 @@
     mode: push          # controller -> Jetson
     archive: true
     delete: false
-    partial: true       # allow resume (rsync --partial)
+    partial: true       # resumable transfers (Scenario 7)
     private_key: "{{ hostvars[inventory_hostname].ansible_ssh_private_key_file | default('/home/koffcheg/.ssh/ansible_hub') }}"
     rsync_opts:
-      - "--no-times"    # keep mtime differences from causing surprises
+      - "--no-times"    # don't try to preserve mtimes
 
 # ==============================
 # 5. Verify checksums in staging
@@ -324,12 +324,12 @@
   become: true
   when: not aip_content_dry_run
   args:
-    chdir: "{{ aip_cs_stage_dir }}"
+    chdir: "{{ aip_cs_stage_dir }}/package"
   shell: |
-    if [ -f sha256.lst ]; then
-      sha256sum --check sha256.lst
+    if [ -f ../checksums/sha256.lst ]; then
+      sha256sum --check ../checksums/sha256.lst
     else
-      echo "No sha256.lst present; skipping checksum verification."
+      echo "No checksums/sha256.lst present; skipping checksum verification."
     fi
   register: aip_cs_checksum_verify
   changed_when: false
@@ -371,7 +371,7 @@
           {{
             (aip_cs_dest.root
               | replace('{deployments_root}', aip_deploy_root)
-              | replace('{current}', aip_cs_current_deploy_path)
+              | replace('{current}', 'current')
             )
           }}
 
