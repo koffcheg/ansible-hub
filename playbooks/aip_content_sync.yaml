@@ -1,0 +1,14 @@
+---
+# playbooks/aip_content_sync.yaml
+
+- name: AIP Content Sync
+  hosts: clients        # typically your [jetsons] or specific clients; use -l to limit
+  gather_facts: false
+
+  vars:
+    # Defaults – can be overridden via inventory or -e
+    bucket: "content-deployment-lab-01"
+    aip_cs_gcp_project: "deployment-setup-lab-01"
+
+  roles:
+    - aip_content_sync

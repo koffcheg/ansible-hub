@@ -1,0 +1,65 @@
+---
+# === GCP / Bucket configuration ===
+
+# Bucket name as used in the handover guide.
+# Can be overridden in inventory or via -e "bucket=..."
+bucket: "content-deployment-lab-01"
+
+# Internal alias for clarity inside the role
+aip_cs_bucket: "{{ bucket }}"
+
+# GCP project; reuse aip_gcp_project if already defined (e.g. by USB role),
+# otherwise default to the lab project.
+aip_cs_gcp_project: "{{ aip_gcp_project | default('deployment-setup-lab-01') }}"
+
+# Controller-side temp root for content sync
+aip_cs_controller_tmp_root: "/tmp/aip_content"
+
+# === Jetson directory layout (aligned with other AIP roles) ===
+
+# Where AIP deployments live on the Jetson (already used by aip_usb_deploy)
+aip_deploy_root: "/home/checkout/deployments"
+
+# AIP state roots (already created by jetson_aip_prereqs)
+aip_state_root: "/opt/aip/state"
+aip_state_stage_dir: "{{ aip_state_root }}/stage"
+aip_state_backups_dir: "{{ aip_state_root }}/backups"
+aip_state_receipts_dir: "{{ aip_state_root }}/receipts"
+
+# === Content bundle identity ===
+
+# bundle_id is REQUIRED (e.g. "global-settings-v1", "summer-promo", ...)
+bundle_id: ""
+
+# bundle_type is optional. If not set, the role will auto-discover it
+# from the manifest path (e.g. /content/ad/<bundle_id>/manifest.yml).
+bundle_type: ""
+
+# === Targeting slugs for overrides / gating ===
+
+region_slug: ""
+warehouse_slug: ""
+store_slug: ""
+device_slug: ""
+
+# === Behaviour flags ===
+
+# If false:
+#   - Only surgically remove files that were previously managed by this bundle
+#     but are not in the new plan.
+# If true:
+#   - Strict mirror: also delete "unmanaged" files under dest root
+#     so that dest matches the new plan exactly.
+prune_extraneous: false
+
+# Logical version label appended to staging / backup dir names.
+# For content we usually just use "current".
+target_version: "current"
+
+# Whether to execute docker compose post-actions from the manifest
+# (e.g. restart frontend/state_manager) after successful sync.
+aip_compose_refresh_after_sync: true
+
+# If true, resolve manifest and plan but do NOT touch Jetson filesystem.
+# Useful for debugging.
+aip_content_dry_run: false
