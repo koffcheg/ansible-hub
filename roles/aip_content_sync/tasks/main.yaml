@@ -308,14 +308,13 @@
   ansible.posix.synchronize:
     src: "{{ aip_cs_controller_overlay_dir }}/"
     dest: "{{ aip_cs_stage_dir }}/"
-    mode: push
+    mode: push          # controller -> Jetson
     archive: true
     delete: false
-    partial: true
+    partial: true       # allow resume (rsync --partial)
     private_key: "{{ hostvars[inventory_hostname].ansible_ssh_private_key_file | default('/home/koffcheg/.ssh/ansible_hub') }}"
     rsync_opts:
-      - "--inplace"
-      - "--no-times"
+      - "--no-times"    # keep mtime differences from causing surprises
 
 # ==============================
 # 5. Verify checksums in staging
