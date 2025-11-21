@@ -6,27 +6,17 @@ Wants=network-online.target
 
 [Service]
 Type=notify
-
-# Main Docker daemon
 ExecStart={{ jetson_docker_bin_dir }}/dockerd --config-file={{ jetson_docker_daemon_config }}
-
-# Reload behaviour
 ExecReload=/bin/kill -s HUP $MAINPID
 
-# Restart behaviour
-Restart=always
-RestartSec=2
+# Keep it running
+Restart=on-failure
+StartLimitBurst=3
+StartLimitInterval=60s
 
-# Resource limits - good defaults for Jetson, tune if needed
-LimitNOFILE=infinity
-LimitNPROC=infinity
-LimitCORE=infinity
-TasksMax=infinity
-
-# Required for containerised workloads
+# Required for containers / cgroups
 Delegate=yes
 KillMode=process
-
 TimeoutStartSec=0
 
 [Install]

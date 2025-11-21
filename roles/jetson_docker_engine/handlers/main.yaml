@@ -1,12 +1,7 @@
-# roles/jetson_docker_engine/handlers/main.yaml
-
-- name: reload systemd for docker
-  become: true
-  systemd:
-    daemon_reload: true
-
+---
 - name: restart docker
   become: true
-  systemd:
+  ansible.builtin.systemd:
     name: docker.service
     state: restarted
+    daemon_reload: true
