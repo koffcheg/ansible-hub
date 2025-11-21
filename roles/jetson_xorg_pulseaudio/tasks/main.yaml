@@ -151,13 +151,15 @@
   command: systemctl --user enable --now pulseaudio.service
   when: not ansible_check_mode
 
-- name: Ensure pulseaudio is active
+- name: Wait until pulseaudio user service is fully active
   become: true
   become_user: checkout
   environment:
     XDG_RUNTIME_DIR: "/run/user/{{ checkout_uid.stdout }}"
   command: systemctl --user is-active pulseaudio.service
   register: pulseaudio_status
+  retries: 10
+  delay: 3
+  until: pulseaudio_status.stdout == "active"
+  failed_when: pulseaudio_status.rc not in [0, 3]
   changed_when: false
-  failed_when: pulseaudio_status.rc != 0
-  when: not ansible_check_mode
