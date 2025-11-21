@@ -2,3 +2,4 @@
 collections:
   - name: google.cloud
   - name: ansible.utils
+  - name: ansible.posix
