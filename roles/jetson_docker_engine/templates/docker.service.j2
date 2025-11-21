@@ -6,17 +6,28 @@ Wants=network-online.target
 
 [Service]
 Type=notify
-ExecStart=/usr/local/bin/dockerd -H fd://
+
+# Main Docker daemon
+ExecStart={{ jetson_docker_bin_dir }}/dockerd --config-file={{ jetson_docker_daemon_config }}
+
+# Reload behaviour
 ExecReload=/bin/kill -s HUP $MAINPID
-TimeoutSec=0
+
+# Restart behaviour
 Restart=always
 RestartSec=2
-LimitNOFILE=1048576
-LimitNPROC=1048576
+
+# Resource limits - good defaults for Jetson, tune if needed
+LimitNOFILE=infinity
+LimitNPROC=infinity
 LimitCORE=infinity
 TasksMax=infinity
+
+# Required for containerised workloads
 Delegate=yes
 KillMode=process
+
+TimeoutStartSec=0
 
 [Install]
 WantedBy=multi-user.target

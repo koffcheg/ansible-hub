@@ -2,3 +2,9 @@
 # Default Docker version and URL for Jetson (aarch64)
 jetson_docker_version: "26.1.3"
 jetson_docker_url: "https://download.docker.com/linux/static/stable/aarch64/docker-26.1.3.tgz"
+
+jetson_docker_bin_dir: "/usr/local/bin"
+jetson_docker_daemon_config: "/etc/docker/daemon.json"
+
+# In case you want to tune later
+jetson_docker_unit_path: "/etc/systemd/system/docker.service"

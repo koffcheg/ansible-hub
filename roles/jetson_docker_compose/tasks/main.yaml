@@ -39,11 +39,14 @@
     state: stopped
   ignore_errors: true
 
-# Optionally reboot here to simulate doc's reboot after compose & xorg setup
 - name: Reboot to apply display stack and docker changes
   become: true
+  become_user: root
   reboot:
-    msg: "Reboot after Docker Compose + Xorg/Pulse setup"
-    connect_timeout: 60
-    reboot_timeout: 600
-  when: jetson_do_reboot | default(true)
+    msg: "Rebooting to apply Jetson display + Docker changes"
+    pre_reboot_delay: 5
+    post_reboot_delay: 30
+    reboot_timeout: 900
+    test_command: "whoami"
+  when: jetson_reboot_after_docker | bool
+

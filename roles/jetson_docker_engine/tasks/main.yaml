@@ -49,10 +49,9 @@
     name: docker
     enabled: true
     state: started
-  ignore_errors: true   # falls back if service file is missing
 
-# /etc/docker/daemon.json matching the doc:
-- name: Ensure /etc/docker directory exists
+# 1) Ensure /etc/docker exists (you probably already have this)
+- name: Ensure Docker config directory exists
   become: true
   file:
     path: /etc/docker
@@ -61,32 +60,41 @@
     group: root
     mode: "0755"
 
+# 2) Install daemon.json (keep your current version, just add notify)
 - name: Install daemon.json
   become: true
   copy:
-    dest: /etc/docker/daemon.json
+    src: daemon.json  # or template: if you already use j2 here
+    dest: "{{ jetson_docker_daemon_config }}"
     owner: root
     group: root
     mode: "0644"
-    content: |
-      {
-        "max-concurrent-downloads": 10,
-        "max-concurrent-uploads": 5,
-        "default-runtime": "nvidia",
-        "runtimes": {
-          "nvidia": {
-            "path": "nvidia-container-runtime",
-            "runtimeArgs": []
-          }
-        }
-      }
+  notify: restart docker
 
-- name: Restart Docker after daemon.json change
+# 3) Install docker.service from j2 template
+- name: Install docker systemd unit
+  become: true
+  template:
+    src: docker.service.j2
+    dest: "{{ jetson_docker_unit_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload systemd for docker
+
+# 4) Make sure systemd knows about the unit
+- name: Reload systemd daemon for docker
   become: true
   systemd:
-    name: docker
-    state: restarted
-  ignore_errors: true
+    daemon_reload: true
+
+# 5) Ensure docker.service is enabled and running
+- name: Ensure docker.service is enabled and running
+  become: true
+  systemd:
+    name: docker.service
+    enabled: true
+    state: started
 
 # TLS certs for docker as per doc
 - name: Create /opt/certs directory
