@@ -306,7 +306,7 @@
 - name: Sync overlay from controller to Jetson staging
   when: not aip_content_dry_run
   delegate_to: localhost
-  synchronize:
+  ansible.posix.synchronize:
     src: "{{ aip_cs_controller_overlay_dir }}/"
     dest: "{{ aip_cs_stage_dir }}/"
     mode: push
