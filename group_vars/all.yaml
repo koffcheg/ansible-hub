@@ -10,6 +10,11 @@ client_configs_base_dir: "/home/koffcheg/client-configs"
 client_meta_dir: "/home/koffcheg/client-meta"
 client_archives_dir: "{{ client_configs_base_dir }}/archives"
 
+aip_gcp_project: "deployment-setup-lab-01"
+aip_usb_bucket:  "content-deployment-lab-01"
+aip_deploy_user: "checkout"
+aip_deploy_root: "/home/checkout/deployments"
+
 # Only relevant to the server
 easy_rsa_dir: /home/kharkov501/easy-rsa
 ta_key_path: /etc/openvpn/ta.key

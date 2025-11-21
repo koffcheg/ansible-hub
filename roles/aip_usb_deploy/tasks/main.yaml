@@ -1,22 +1,68 @@
 ---
-# roles/aip_usb_deploy/tasks/main.yml
+# roles/aip_usb_deploy/tasks/main.yaml
 
+# 0) Make sure /etc/aip/deploy.env exists when we need it
 - name: Ensure /etc/aip/deploy.env exists
   become: true
   stat:
     path: /etc/aip/deploy.env
   register: aip_deploy_env
 
+- name: Fail if /etc/aip/deploy.env is missing and no aip_blob_name was provided
+  fail:
+    msg: >
+      /etc/aip/deploy.env does not exist and no aip_blob_name extra var was provided.
+      Either:
+        1) pass -e "aip_blob_name=..." to ansible-playbook, or
+        2) create /etc/aip/deploy.env with a BLOB_NAME=... line.
+  when:
+    - not aip_deploy_env.stat.exists
+    - (aip_blob_name is not defined or aip_blob_name | trim | length == 0)
+
+# 1) Optionally read BLOB_NAME from /etc/aip/deploy.env
 - name: Read BLOB_NAME from /etc/aip/deploy.env if aip_blob_name not provided
   become: true
-  when:
-    - aip_blob_name | length == 0
-    - aip_deploy_env.stat.exists
-  shell: "set -o pipefail && grep '^BLOB_NAME=' /etc/aip/deploy.env | cut -d'=' -f2- || true"
-  args:
-    executable: /bin/bash
+  command: "awk -F= '/^BLOB_NAME=/{print $2}' /etc/aip/deploy.env"
   register: aip_blob_from_env
   changed_when: false
+  when:
+    - aip_deploy_env.stat.exists
+    - aip_blob_name is not defined or aip_blob_name | trim | length == 0
+
+# 2) Decide which blob_name we actually use
+
+# Prefer the explicit extra var
+- name: Set effective blob_name from extra var
+  set_fact:
+    blob_name: "{{ aip_blob_name | trim }}"
+  when: aip_blob_name is defined and aip_blob_name | trim | length > 0
+
+# Fall back to /etc/aip/deploy.env
+- name: Set effective blob_name from /etc/aip/deploy.env
+  set_fact:
+    blob_name: "{{ aip_blob_from_env.stdout | trim }}"
+  when:
+    - blob_name is not defined
+    - aip_blob_from_env is defined
+    - aip_blob_from_env.stdout is defined
+    - aip_blob_from_env.stdout | trim | length > 0
+
+# Hard fail if we still don't have a name
+- name: Fail if blob_name could not be determined
+  fail:
+    msg: >
+      Unable to determine blob_name.
+      Provide -e "aip_blob_name=..." OR set BLOB_NAME=... in /etc/aip/deploy.env.
+  when: blob_name is not defined or blob_name | trim | length == 0
+
+- name: In mock mode, ensure a dummy blob exists in staged directory
+  become: true
+  become_user: "{{ aip_deploy_user }}"
+  copy:
+    dest: "{{ aip_deploy_root }}/.staged/{{ blob_name }}"
+    content: "MOCK AIP BLOB {{ blob_name }} - not a real archive\n"
+  when:
+    - aip_usb_mock_mode | default(false) | bool
 
 - name: Set effective blob_name fact
   set_fact:
