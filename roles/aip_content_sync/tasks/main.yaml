@@ -88,7 +88,7 @@
   register: aip_cs_manifest_cp
   changed_when: true
 
-# 1.7. Parse manifest into structured fact
+# 1.7. Parse manifest.yml
 - name: Parse manifest.yml
   set_fact:
     aip_cs_manifest: "{{ lookup('file', aip_cs_controller_manifest_path) | from_yaml }}"
@@ -245,15 +245,15 @@
   delegate_to: localhost
   when:
     - "'store' in aip_cs_precedence"
-    - region_slug | default('') | length > 0
-    - warehouse_slug | default('') | length > 0
     - store_slug | default('') | length > 0
+    - warehouse_slug | default('') | length > 0
+    - aip_cs_src_store_resolved | length > 0
   environment:
     CLOUDSDK_CORE_PROJECT: "{{ aip_cs_gcp_project }}"
   shell: |
     set -e
-    SRC="gs://{{ aip_cs_bucket }}/content/{{ bundle_type }}/{{ bundle_id }}/overrides/store/{{ region_slug }}/{{ warehouse_slug }}/{{ store_slug }}"
-    DEST="{{ aip_cs_controller_overlay_dir }}/overrides/store/{{ region_slug }}/{{ warehouse_slug }}/{{ store_slug }}/"
+    SRC='{{ aip_cs_base_url }}/{{ aip_cs_src_store_resolved }}'
+    DEST='{{ aip_cs_controller_overlay_dir }}/{{ aip_cs_src_store_resolved }}/'
 
     # If the GCS path doesn't exist, just exit 0 (no store override for this combo)
     if ! gsutil ls "$SRC/**" >/dev/null 2>&1; then
