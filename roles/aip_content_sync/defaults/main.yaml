@@ -41,6 +41,24 @@ aip_state_backups_dir: "{{ aip_state_root }}/backups"
 # Receipts for completed/failed content sync operations
 aip_state_receipts_dir: "{{ aip_state_root }}/receipts"
 
+# -------------------------------------------------------------------
+# Derived / compatibility variables used by tasks (do NOT remove)
+# -------------------------------------------------------------------
+
+# Older / shorter names used inside the tasks file
+# (these are what your failing task "Ensure AIP base state directories exist"
+# is referencing).
+aip_state_dir: "{{ aip_state_root }}"
+stage_root: "{{ aip_state_stage_dir }}"
+backups_root: "{{ aip_state_backups_dir }}"
+receipts_root: "{{ aip_state_receipts_dir }}"
+
+# For manifest.dest.root templates such as:
+#   '{deployments_root}/{current}/app/config'
+# the tasks expand these placeholders.
+deployments_root: "{{ aip_deploy_root }}"
+current: "current"   # just the symlink name segment, used in templates
+
 
 # =========================
 # 3. Content bundle identity
