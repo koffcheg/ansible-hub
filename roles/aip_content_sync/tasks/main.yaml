@@ -220,7 +220,7 @@
   command: >
     gsutil -m rsync -r
     "{{ aip_cs_base_url }}/{{ aip_cs_src_region_resolved }}"
-    "{{ aip_cs_controller_overlay_dir }}/"
+    "{{ aip_cs_controller_overlay_dir }}/{{ aip_cs_src_region_resolved }}/"
   register: aip_cs_region_rsync
   changed_when: aip_cs_region_rsync.rc == 0
   failed_when: false
@@ -236,7 +236,7 @@
   command: >
     gsutil -m rsync -r
     "{{ aip_cs_base_url }}/{{ aip_cs_src_warehouse_resolved }}"
-    "{{ aip_cs_controller_overlay_dir }}/"
+    "{{ aip_cs_controller_overlay_dir }}/{{ aip_cs_src_warehouse_resolved }}/"
   register: aip_cs_wh_rsync
   changed_when: aip_cs_wh_rsync.rc == 0
   failed_when: false
@@ -252,7 +252,7 @@
   command: >
     gsutil -m rsync -r
     "{{ aip_cs_base_url }}/{{ aip_cs_src_store_resolved }}"
-    "{{ aip_cs_controller_overlay_dir }}/"
+    "{{ aip_cs_controller_overlay_dir }}/{{ aip_cs_src_store_resolved }}/"
   register: aip_cs_store_rsync
   changed_when: aip_cs_store_rsync.rc == 0
   failed_when: false
@@ -268,7 +268,7 @@
   command: >
     gsutil -m rsync -r
     "{{ aip_cs_base_url }}/{{ aip_cs_src_device_resolved }}"
-    "{{ aip_cs_controller_overlay_dir }}/"
+    "{{ aip_cs_controller_overlay_dir }}/{{ aip_cs_src_device_resolved }}/"
   register: aip_cs_dev_rsync
   changed_when: aip_cs_dev_rsync.rc == 0
   failed_when: false
