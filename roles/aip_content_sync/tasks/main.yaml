@@ -93,25 +93,46 @@
   set_fact:
     aip_cs_manifest: "{{ lookup('file', aip_cs_controller_manifest_path) | from_yaml }}"
 
-# For convenience
 - name: Normalize manifest fields
   set_fact:
+    # Raw manifest subsections
     aip_cs_metadata: "{{ aip_cs_manifest.metadata | default({}) }}"
     aip_cs_source: "{{ aip_cs_manifest.source | default({}) }}"
+    aip_cs_dest: "{{ aip_cs_manifest.dest | default({}) }}"
     aip_cs_rules: "{{ aip_cs_manifest.rules | default({}) }}"
     aip_cs_target: "{{ aip_cs_manifest.target | default({}) }}"
-    aip_cs_dest: "{{ aip_cs_manifest.dest | default({}) }}"
-    aip_cs_post: "{{ aip_cs_manifest.post | default([]) }}"
+
+    # Precedence (device > store > warehouse > region > base by default)
+    aip_cs_precedence: >-
+      {{
+        aip_cs_rules.precedence
+        | default(['device', 'store', 'warehouse', 'region', 'base'])
+      }}
+
+    # Base URL resolution priority:
+    #  1) top-level manifest.base_url
+    #  2) metadata.base_url
+    #  3) gs://<bucket>/content/<bundle_type>/<bundle_id>
     aip_cs_base_url: >-
       {{
         (
-          aip_cs_metadata.base_url
-            | default(aip_cs_manifest.base_url
+          aip_cs_manifest.base_url
+          | default(
+              aip_cs_metadata.base_url
               | default('gs://' ~ aip_cs_bucket ~ '/content/' ~ bundle_type ~ '/' ~ bundle_id)
             )
         )
         | replace('YOUR_BUCKET', aip_cs_bucket)
       }}
+    
+- name: Compute resolved target_version
+  set_fact:
+    target_version: >-
+      {{
+        target_version
+          | default(aip_cs_metadata.version | default('0'))
+      }}
+
 
 # ======================
 # 2. Targeting / Gating
@@ -247,12 +268,12 @@
 
 # First check whether the store override path actually exists
 - name: Check if store overrides path exists in GCS
-  delegate_to: localhost
   when:
     - "'store' in aip_cs_precedence"
     - store_slug | default('') | length > 0
     - warehouse_slug | default('') | length > 0
     - aip_cs_src_store_resolved | length > 0
+  delegate_to: localhost
   environment:
     CLOUDSDK_CORE_PROJECT: "{{ aip_cs_gcp_project }}"
   shell: >
@@ -262,13 +283,13 @@
   failed_when: false
 
 - name: Sync store overrides into overlay (if configured)
-  delegate_to: localhost
   when:
     - "'store' in aip_cs_precedence"
     - store_slug | default('') | length > 0
     - warehouse_slug | default('') | length > 0
     - aip_cs_src_store_resolved | length > 0
     - aip_cs_store_ls.rc == 0
+  delegate_to: localhost
   environment:
     CLOUDSDK_CORE_PROJECT: "{{ aip_cs_gcp_project }}"
   command: >
