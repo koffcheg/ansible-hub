@@ -246,8 +246,6 @@
       Could not determine base_url for bundle_id='{{ bundle_id }}'.
       metadata.base_url is empty/placeholder and derivation from manifest_url failed.
 
-# *** UPDATED SECTION ENDS HERE ***
-
 - name: Resolve override paths with slugs
   set_fact:
     aip_cs_src_region_resolved: >-
@@ -455,6 +453,26 @@
     "{{ aip_cs_controller_overlay_dir }}/checksums/sha256.lst"
   register: aip_cs_checksum_dl
   changed_when: aip_cs_checksum_dl.rc == 0
+
+# ---------------------------------------------------------------------------
+# 4b. Checksum verification (optional)
+# ---------------------------------------------------------------------------
+
+- name: Verify checksums if checksum list is present
+  when: aip_cs_checksum_ls.rc == 0
+  delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
+  command: >
+    sha256sum -c "checksums/sha256.lst"
+  args:
+    chdir: "{{ aip_cs_controller_overlay_dir }}"
+  register: aip_cs_checksum_verify
+  changed_when: false
+  failed_when: aip_cs_checksum_verify.rc != 0
+
+- name: Debug checksum verification output
+  when: aip_cs_checksum_ls.rc == 0
+  debug:
+    var: aip_cs_checksum_verify.stdout_lines
 
 # ---------------------------------------------------------------------------
 # 5. Overlay -> Jetson staging
