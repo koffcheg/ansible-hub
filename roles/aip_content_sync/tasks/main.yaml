@@ -154,7 +154,7 @@
   set_fact:
     # Raw manifest subsections
     aip_cs_metadata: "{{ aip_cs_manifest.metadata | default({}) }}"
-    aip_cs_source: "{{ aip_cs_manifest.source | default({{}) }}"
+    aip_cs_source: "{{ aip_cs_manifest.source | default({}) }}"
     aip_cs_dest: "{{ aip_cs_manifest.dest | default({}) }}"
     aip_cs_rules: "{{ aip_cs_manifest.rules | default({}) }}"
     aip_cs_target: "{{ aip_cs_manifest.target | default({}) }}"
