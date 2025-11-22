@@ -179,6 +179,16 @@
          | replace('{device_slug}', device_slug | default(''))
       }}
 
+- name: Ensure overlay subdirs for base content and checksums exist
+  delegate_to: localhost
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ aip_cs_controller_overlay_dir }}/{{ aip_cs_src_base_rel }}"
+    - "{{ aip_cs_controller_overlay_dir }}/checksums"
+
 # Precedence from manifest.rules or sensible default
 - name: Determine precedence order
   set_fact:
