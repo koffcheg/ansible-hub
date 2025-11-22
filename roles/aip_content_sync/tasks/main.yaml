@@ -225,15 +225,28 @@
     aip_cs_src_store_rel: "{{ aip_cs_source.overrides.store | default('') }}"
     aip_cs_src_device_rel: "{{ aip_cs_source.overrides.device | default('') }}"
 
-- name: Compute base_url from metadata
+- name: Compute raw base_url from metadata
   set_fact:
-    aip_cs_base_url: "{{ aip_cs_metadata.base_url | default('') }}"
+    aip_cs_base_url_raw: "{{ aip_cs_metadata.base_url | default('') }}"
+
+- name: Derive effective base_url
+  set_fact:
+    aip_cs_base_url: >-
+      {%- if aip_cs_base_url_raw | length > 0 -%}
+        {{ aip_cs_base_url_raw
+           | regex_replace('^gs://YOUR_BUCKET', 'gs://' ~ aip_cs_bucket) }}
+      {%- else -%}
+        {{ aip_cs_manifest_url | regex_replace('/manifest.yml$', '') }}
+      {%- endif -%}
 
 - name: Fail if base_url is empty
   when: aip_cs_base_url | length == 0
   fail:
     msg: >
-      metadata.base_url is empty in manifest. Cannot proceed.
+      Could not determine base_url for bundle_id='{{ bundle_id }}'.
+      metadata.base_url is empty/placeholder and derivation from manifest_url failed.
+
+# *** UPDATED SECTION ENDS HERE ***
 
 - name: Resolve override paths with slugs
   set_fact:
