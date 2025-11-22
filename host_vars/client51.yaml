@@ -1,0 +1,6 @@
+# inventory/host_vars/client51.yml
+
+region_slug: us-west
+warehouse_slug: ca-warehouse
+store_slug: store-101
+device_slug: client51

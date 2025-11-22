@@ -167,6 +167,7 @@
         | default(['device', 'store', 'warehouse', 'region', 'base'])
       }}
 
+# Apply behaviour flags from manifest rules, overridden by explicit vars if set
 - name: Apply behaviour flags from manifest rules
   set_fact:
     enable_simple_backup: >-
@@ -204,6 +205,47 @@
     target_warehouses: "{{ aip_cs_target.warehouses | default([]) }}"
     target_stores: "{{ aip_cs_target.stores | default([]) }}"
     target_devices: "{{ aip_cs_target.devices | default([]) }}"
+
+# Fail fast if manifest targets specific things but host has no identity slugs
+- name: Fail if manifest targets regions but host has no region_slug
+  when:
+    - target_regions | length > 0
+    - region_slug is not defined or region_slug | length == 0
+  fail:
+    msg: >
+      Manifest for bundle '{{ bundle_id }}' targets regions {{ target_regions }},
+      but host '{{ inventory_hostname }}' has no region_slug defined.
+      Define region_slug in host_vars/group_vars for this host.
+
+- name: Fail if manifest targets warehouses but host has no warehouse_slug
+  when:
+    - target_warehouses | length > 0
+    - warehouse_slug is not defined or warehouse_slug | length == 0
+  fail:
+    msg: >
+      Manifest for bundle '{{ bundle_id }}' targets warehouses {{ target_warehouses }},
+      but host '{{ inventory_hostname }}' has no warehouse_slug defined.
+      Define warehouse_slug in host_vars/group_vars for this host.
+
+- name: Fail if manifest targets stores but host has no store_slug
+  when:
+    - target_stores | length > 0
+    - store_slug is not defined or store_slug | length == 0
+  fail:
+    msg: >
+      Manifest for bundle '{{ bundle_id }}' targets stores {{ target_stores }},
+      but host '{{ inventory_hostname }}' has no store_slug defined.
+      Define store_slug in host_vars/group_vars for this host.
+
+- name: Fail if manifest targets devices but host has no device_slug
+  when:
+    - target_devices | length > 0
+    - device_slug is not defined or device_slug | length == 0
+  fail:
+    msg: >
+      Manifest for bundle '{{ bundle_id }}' targets devices {{ target_devices }},
+      but host '{{ inventory_hostname }}' has no device_slug defined.
+      Define device_slug in host_vars/group_vars for this host.
 
 - name: Debug targeting and slugs
   debug:
