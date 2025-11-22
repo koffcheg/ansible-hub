@@ -93,9 +93,10 @@
   set_fact:
     aip_cs_manifest: "{{ lookup('file', aip_cs_controller_manifest_path) | from_yaml }}"
 
-# For convenience
+# For convenience (and support metadata.base_url)
 - name: Normalize manifest fields
   set_fact:
+    aip_cs_metadata: "{{ aip_cs_manifest.metadata | default({}) }}"
     aip_cs_source: "{{ aip_cs_manifest.source | default({}) }}"
     aip_cs_rules: "{{ aip_cs_manifest.rules | default({}) }}"
     aip_cs_target: "{{ aip_cs_manifest.target | default({}) }}"
@@ -103,8 +104,12 @@
     aip_cs_post: "{{ aip_cs_manifest.post | default([]) }}"
     aip_cs_base_url: >-
       {{
-        (aip_cs_manifest.base_url
-          | default('gs://' ~ aip_cs_bucket ~ '/content/' ~ bundle_type ~ '/' ~ bundle_id)
+        (
+          aip_cs_manifest.base_url
+          | default(
+              aip_cs_metadata.base_url
+              | default('gs://' ~ aip_cs_bucket ~ '/content/' ~ bundle_type ~ '/' ~ bundle_id)
+            )
         )
         | replace('YOUR_BUCKET', aip_cs_bucket)
       }}
@@ -207,7 +212,8 @@
     "{{ aip_cs_base_url }}/{{ aip_cs_src_base_rel }}"
     "{{ aip_cs_controller_overlay_dir }}/{{ aip_cs_src_base_rel }}/"
   register: aip_cs_base_rsync
-  changed_when: true
+  changed_when: aip_cs_base_rsync.rc == 0
+  failed_when: aip_cs_base_rsync.rc != 0
 
 - name: Sync region overrides into overlay (if configured)
   delegate_to: localhost
@@ -291,9 +297,13 @@
 # 4. Stage content on Jetson
 # ==========================
 
+- name: Compute resolved target_version
+  set_fact:
+    aip_cs_target_version: "{{ target_version | default('current') }}"
+
 - name: Compute staging paths on Jetson
   set_fact:
-    aip_cs_stage_dir: "{{ aip_state_stage_dir }}/{{ bundle_id }}@{{ target_version }}"
+    aip_cs_stage_dir: "{{ aip_state_stage_dir }}/{{ bundle_id }}@{{ aip_cs_target_version }}"
     aip_cs_lock_path: "{{ aip_state_root }}/locks/aip-content-{{ bundle_id }}.lock"
 
 - name: Compute managed index path on Jetson
@@ -338,7 +348,7 @@
   become: true
   when: not aip_content_dry_run
   args:
-    chdir: "{{ aip_cs_stage_dir }}/package"
+    chdir: "{{ aip_cs_stage_dir }}/{{ aip_cs_src_base_rel | default('package') }}"
   shell: |
     if [ -f ../checksums/sha256.lst ]; then
       sha256sum --check ../checksums/sha256.lst
