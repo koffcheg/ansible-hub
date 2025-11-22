@@ -290,10 +290,13 @@
 # 4. Stage content on Jetson
 # ==========================
 
-- name: Compute staging and managed index paths on Jetson
+- name: Compute staging paths on Jetson
   set_fact:
     aip_cs_stage_dir: "{{ aip_state_stage_dir }}/{{ bundle_id }}@{{ target_version }}"
     aip_cs_lock_path: "{{ aip_state_root }}/locks/aip-content-{{ bundle_id }}.lock"
+
+- name: Compute managed index path on Jetson
+  set_fact:
     aip_cs_managed_index_path: "{{ aip_cs_stage_dir }}/.aip-managed-{{ bundle_id }}.json"
 
 - name: Ensure AIP locks dir exists
