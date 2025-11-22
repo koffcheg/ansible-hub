@@ -1,97 +1,91 @@
-# ===============================
-# 0. Basic validation & variables
-# ===============================
+---
+# Main orchestration tasks for AIP content sync.
+# This role:
+#   - Downloads a manifest from GCS.
+#   - Parses metadata, source/dest info, and rules.
+#   - Builds a GCS -> controller overlay.
+#   - Stages content on the Jetson.
+#   - Promotes staged content into final dest_root.
+#   - Manages receipts, backups, and surgical deletion of old content.
 
-- name: Fail early if bundle_id is not provided
-  fail:
-    msg: "aip_content_sync: 'bundle_id' is required (e.g. -e \"bundle_id=global-settings-v1\")."
-  when: bundle_id is not defined or bundle_id | trim | length == 0
+- name: "AIP content sync | Start"
+  debug:
+    msg: >
+      Starting AIP content sync for bundle_id='{{ bundle_id }}'
+      and target_version='{{ target_version }}'.
 
-- name: Normalize bundle_id and derive normalized id
-  set_fact:
-    bundle_id: "{{ bundle_id | trim }}"
-    bundle_id_normalized: "{{ (bundle_id | trim) | regex_replace('[^A-Za-z0-9_.-]', '_') }}"
-
-# Host-specific temp root on controller
-- name: Set controller tmp paths for this bundle
-  set_fact:
-    aip_cs_controller_host_root: "{{ aip_cs_controller_tmp_root }}/{{ inventory_hostname }}"
-    aip_cs_controller_bundle_root: "{{ aip_cs_controller_tmp_root }}/{{ inventory_hostname }}/{{ bundle_id }}"
-    aip_cs_controller_overlay_dir: "{{ aip_cs_controller_tmp_root }}/{{ inventory_hostname }}/{{ bundle_id }}/overlay"
-    aip_cs_controller_manifest_path: "{{ aip_cs_controller_tmp_root }}/{{ inventory_hostname }}/{{ bundle_id }}/manifest.yml"
-
-# ============
-# 1. Manifest
-# ============
-
-# 1.1. Try explicit manifest_url (if caller provided it); otherwise we will auto-discover.
-- name: Initialize manifest_url fact
-  set_fact:
-    manifest_url: "{{ manifest_url | default('') }}"
-
-# 1.2. If bundle_type is given, derive manifest_url from type + id
-- name: Compose manifest_url from bundle_type if provided
-  when:
-    - manifest_url | length == 0
-    - bundle_type is defined
-    - bundle_type | trim | length > 0
-  set_fact:
-    manifest_url: "gs://{{ aip_cs_bucket }}/content/{{ bundle_type | trim }}/{{ bundle_id }}/manifest.yml"
-
-# 1.3. Auto-discover manifest if still unknown
-- name: Auto-discover manifest in bucket by bundle_id
-  delegate_to: localhost
-  when: manifest_url | length == 0
-  environment:
-    CLOUDSDK_CORE_PROJECT: "{{ aip_cs_gcp_project }}"
-  shell: >
-    gsutil ls "gs://{{ aip_cs_bucket }}/content/*/{{ bundle_id }}/manifest.yml"
-  register: aip_cs_manifest_ls
-  changed_when: false
-  failed_when: aip_cs_manifest_ls.rc != 0 or (aip_cs_manifest_ls.stdout_lines | length) == 0
-
-- name: Set manifest_url from auto-discovery
-  when: manifest_url | length == 0
-  set_fact:
-    manifest_url: "{{ (aip_cs_manifest_ls.stdout_lines[0] | trim) }}"
-
-- name: Fail if manifest_url is still empty
-  fail:
-    msg: "aip_content_sync: Manifest not found for bundle_id='{{ bundle_id }}' in bucket '{{ aip_cs_bucket }}'."
-  when: manifest_url | length == 0
-
-# 1.4. Derive bundle_type from manifest_url (if caller didn’t set it)
-- name: Derive bundle_type from manifest_url
-  when: bundle_type | default('') | trim | length == 0
-  set_fact:
-    bundle_type: "{{ (manifest_url.split('/'))[-3] }}"
-
-# 1.5. Ensure controller-side tmp/overlay dirs exist
-- name: Ensure controller-side tmp dirs exist
-  delegate_to: localhost
+- name: Ensure AIP base state directories exist
   file:
     path: "{{ item }}"
     state: directory
     mode: "0755"
   loop:
-    - "{{ aip_cs_controller_host_root }}"
-    - "{{ aip_cs_controller_bundle_root }}"
-    - "{{ aip_cs_controller_overlay_dir }}"
+    - "{{ aip_state_dir }}"
+    - "{{ stage_root }}"
+    - "{{ backups_root }}"
+    - "{{ receipts_root }}"
 
-# 1.6. Download manifest.yml to controller
-- name: Download manifest from GCS
-  delegate_to: localhost
+- name: Compute bundle_id hash-safe name
+  set_fact:
+    bundle_safe_id: "{{ bundle_id | regex_replace('[^a-zA-Z0-9_.-]', '_') }}"
+
+- name: Compute target version string
+  set_fact:
+    bundle_version: "{{ target_version | default('current') }}"
+
+- name: Compute stage_dir for this run
+  set_fact:
+    aip_cs_stage_dir: "{{ stage_root }}/{{ bundle_safe_id }}@{{ bundle_version }}"
+
+- name: Compute backup_dir (timestamped) for this run
+  set_fact:
+    aip_cs_backup_dir: "{{ backups_root }}/{{ bundle_safe_id }}@{{ bundle_version }}-{{ ansible_date_time.iso8601_basic }}"
+
+- name: Compute managed index path for receipts
+  set_fact:
+    aip_cs_managed_index_path: "{{ receipts_root }}/{{ managed_index_name }}"
+
+# ---------------------------------------------------------------------------
+# 1. Download and parse manifest
+# ---------------------------------------------------------------------------
+
+- name: Ensure local working directory for manifest exists
+  file:
+    path: "{{ aip_cs_work_dir | default('/tmp/aip_content') }}/{{ inventory_hostname }}/{{ bundle_safe_id }}"
+    state: directory
+    mode: "0755"
+  delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
+
+- name: Compute manifest URL (GCS object path)
+  set_fact:
+    aip_cs_manifest_url: "{{ aip_cs_gcs_manifest_url | default(aip_cs_manifest_default_url) }}"
+
+- name: Download manifest.yaml from GCS
+  delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
   environment:
     CLOUDSDK_CORE_PROJECT: "{{ aip_cs_gcp_project }}"
   command: >
-    gsutil cp "{{ manifest_url }}" "{{ aip_cs_controller_manifest_path }}"
-  register: aip_cs_manifest_cp
-  changed_when: true
+    gsutil cp "{{ aip_cs_manifest_url }}"
+    "{{ aip_cs_work_dir | default('/tmp/aip_content') }}/{{ inventory_hostname }}/{{ bundle_safe_id }}/manifest.yaml"
+  register: aip_cs_manifest_dl
+  changed_when: aip_cs_manifest_dl.rc == 0
 
-# 1.7. Parse manifest.yml
-- name: Parse manifest.yml
+- name: Fail if manifest download failed
+  when: aip_cs_manifest_dl.rc != 0
+  fail:
+    msg: >
+      Failed to download manifest from '{{ aip_cs_manifest_url }}'.
+      gsutil rc={{ aip_cs_manifest_dl.rc }} stderr={{ aip_cs_manifest_dl.stderr | default('') }}
+
+- name: Slurp manifest.yaml into a variable
+  delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
+  slurp:
+    src: "{{ aip_cs_work_dir | default('/tmp/aip_content') }}/{{ inventory_hostname }}/{{ bundle_safe_id }}/manifest.yaml"
+  register: aip_cs_manifest_slurp
+
+- name: Parse manifest YAML
   set_fact:
-    aip_cs_manifest: "{{ lookup('file', aip_cs_controller_manifest_path) | from_yaml }}"
+    aip_cs_manifest: "{{ aip_cs_manifest_slurp['content'] | b64decode | from_yaml }}"
 
 - name: Normalize manifest fields
   set_fact:
@@ -101,111 +95,109 @@
     aip_cs_dest: "{{ aip_cs_manifest.dest | default({}) }}"
     aip_cs_rules: "{{ aip_cs_manifest.rules | default({}) }}"
     aip_cs_target: "{{ aip_cs_manifest.target | default({}) }}"
+    aip_cs_post: "{{ aip_cs_manifest.post | default([]) }}"
 
     # Precedence (device > store > warehouse > region > base by default)
     aip_cs_precedence: >-
       {{
-        aip_cs_rules.precedence
+        aip_cs_manifest.precedence
         | default(['device', 'store', 'warehouse', 'region', 'base'])
       }}
 
-    # Base URL resolution priority:
-    #  1) top-level manifest.base_url
-    #  2) metadata.base_url
-    #  3) gs://<bucket>/content/<bundle_type>/<bundle_id>
-    aip_cs_base_url: >-
-      {{
-        (
-          aip_cs_manifest.base_url
-          | default(
-              aip_cs_metadata.base_url
-              | default('gs://' ~ aip_cs_bucket ~ '/content/' ~ bundle_type ~ '/' ~ bundle_id)
-            )
-        )
-        | replace('YOUR_BUCKET', aip_cs_bucket)
-      }}
-    
-- name: Compute resolved target_version
+# ---------------------------------------------------------------------------
+# 2. Resolve target facts (region, warehouse, store, device)
+# ---------------------------------------------------------------------------
+
+- name: Resolve target device/store/warehouse/region from target section
   set_fact:
-    target_version: >-
-      {{
-        target_version
-          | default(aip_cs_metadata.version | default('0'))
-      }}
+    region_slug: "{{ aip_cs_target.region_slug | default('') }}"
+    warehouse_slug: "{{ aip_cs_target.warehouse_slug | default('') }}"
+    store_slug: "{{ aip_cs_target.store_slug | default('') }}"
+    device_slug: "{{ aip_cs_target.device_slug | default('') }}"
 
-
-# ======================
-# 2. Targeting / Gating
-# ======================
-
-- name: Evaluate targeting constraints from manifest.target
-  set_fact:
-    aip_cs_skip_due_to_target: >-
-      {{
-        (aip_cs_target.regions | default([]) | length > 0 and
-         (region_slug | default('') not in aip_cs_target.regions))
-        or
-        (aip_cs_target.warehouses | default([]) | length > 0 and
-         (warehouse_slug | default('') not in aip_cs_target.warehouses))
-        or
-        (aip_cs_target.stores | default([]) | length > 0 and
-         (store_slug | default('') not in aip_cs_target.stores))
-        or
-        (aip_cs_target.devices | default([]) | length > 0 and
-         (device_slug | default('') not in aip_cs_target.devices))
-      }}
-
-- name: Skip content sync because target gating does not match this device
-  when: aip_cs_skip_due_to_target
+- name: Debug resolved target slugs
   debug:
-    msg: "AIP Content Sync: bundle '{{ bundle_id }}' not targeted at this device (region/warehouse/store/device mismatch)."
+    msg:
+      region_slug: "{{ region_slug }}"
+      warehouse_slug: "{{ warehouse_slug }}"
+      store_slug: "{{ store_slug }}"
+      device_slug: "{{ device_slug }}"
 
-- name: Stop processing this host (gating)
-  when: aip_cs_skip_due_to_target
-  meta: end_host
-
-# ===================
-# 3. Build overlay on
-#    controller (GCS)
-# ===================
+# ---------------------------------------------------------------------------
+# 3. Compute source paths (base + overrides) relative to base_url
+# ---------------------------------------------------------------------------
 
 - name: Extract source paths from manifest
   set_fact:
-    aip_cs_src_base_rel: "{{ aip_cs_source.base | default('package') }}"
+    aip_cs_src_base_rel: "{{ aip_cs_source.base | default('') }}"
     aip_cs_src_region_rel: "{{ aip_cs_source.overrides.region | default('') }}"
     aip_cs_src_warehouse_rel: "{{ aip_cs_source.overrides.warehouse | default('') }}"
     aip_cs_src_store_rel: "{{ aip_cs_source.overrides.store | default('') }}"
     aip_cs_src_device_rel: "{{ aip_cs_source.overrides.device | default('') }}"
-    aip_cs_src_checksums_rel: "{{ aip_cs_source.checksums | default('') }}"
 
-# Helper facts resolving tokens in override paths
+- name: Compute base_url from metadata
+  set_fact:
+    aip_cs_base_url: "{{ aip_cs_metadata.base_url | default('') }}"
+
+- name: Fail if base_url is empty
+  when: aip_cs_base_url | length == 0
+  fail:
+    msg: >
+      metadata.base_url is empty in manifest. Cannot proceed.
+
 - name: Resolve override paths with slugs
   set_fact:
     aip_cs_src_region_resolved: >-
-      {{ aip_cs_src_region_rel
-         | replace('{region_slug}', region_slug | default(''))
+      {{
+        aip_cs_src_region_rel
+        | default('')
+        | replace('{region_slug}', region_slug | default(''))
       }}
     aip_cs_src_warehouse_resolved: >-
-      {{ aip_cs_src_warehouse_rel
-         | replace('{region_slug}', region_slug | default(''))
-         | replace('{warehouse_slug}', warehouse_slug | default(''))
+      {{
+        aip_cs_src_warehouse_rel
+        | default('')
+        | replace('{region_slug}', region_slug | default(''))
+        | replace('{warehouse_slug}', warehouse_slug | default(''))
       }}
     aip_cs_src_store_resolved: >-
-      {{ aip_cs_src_store_rel
-         | replace('{region_slug}', region_slug | default(''))
-         | replace('{warehouse_slug}', warehouse_slug | default(''))
-         | replace('{store_slug}', store_slug | default(''))
+      {{
+        aip_cs_src_store_rel
+        | default('')
+        | replace('{region_slug}', region_slug | default(''))
+        | replace('{warehouse_slug}', warehouse_slug | default(''))
+        | replace('{store_slug}', store_slug | default(''))
       }}
     aip_cs_src_device_resolved: >-
-      {{ aip_cs_src_device_rel
-         | replace('{region_slug}', region_slug | default(''))
-         | replace('{warehouse_slug}', warehouse_slug | default(''))
-         | replace('{store_slug}', store_slug | default(''))
-         | replace('{device_slug}', device_slug | default(''))
+      {{
+        aip_cs_src_device_rel
+        | default('')
+        | replace('{region_slug}', region_slug | default(''))
+        | replace('{warehouse_slug}', warehouse_slug | default(''))
+        | replace('{store_slug}', store_slug | default(''))
+        | replace('{device_slug}', device_slug | default(''))
       }}
 
+- name: Debug resolved source paths
+  debug:
+    msg:
+      base_rel: "{{ aip_cs_src_base_rel }}"
+      region_resolved: "{{ aip_cs_src_region_resolved }}"
+      warehouse_resolved: "{{ aip_cs_src_warehouse_resolved }}"
+      store_resolved: "{{ aip_cs_src_store_resolved }}"
+      device_resolved: "{{ aip_cs_src_device_resolved }}"
+
+# ---------------------------------------------------------------------------
+# 4. Build overlay on controller (GCS -> controller overlay dir)
+# ---------------------------------------------------------------------------
+
+- name: Compute controller overlay root directory
+  set_fact:
+    aip_cs_controller_overlay_dir: >-
+      {{ aip_cs_work_dir | default('/tmp/aip_content') }}/{{ inventory_hostname }}/{{ bundle_safe_id }}/overlay
+
 - name: Ensure overlay subdirs for base content and checksums exist
-  delegate_to: localhost
+  delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
   file:
     path: "{{ item }}"
     state: directory
@@ -214,17 +206,8 @@
     - "{{ aip_cs_controller_overlay_dir }}/{{ aip_cs_src_base_rel }}"
     - "{{ aip_cs_controller_overlay_dir }}/checksums"
 
-# Precedence from manifest.rules or sensible default
-- name: Determine precedence order
-  set_fact:
-    aip_cs_precedence: "{{ aip_cs_rules.precedence | default(['base','region','warehouse','store','device']) }}"
-
-# 3.x. Sequentially rsync from base + overrides into overlay dir.
-
-# IMPORTANT: keep "package/" folder so tests see app/.../package/*
 - name: Sync base content from GCS into overlay
-  delegate_to: localhost
-  when: "'base' in aip_cs_precedence"
+  delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
   environment:
     CLOUDSDK_CORE_PROJECT: "{{ aip_cs_gcp_project }}"
   command: >
@@ -233,13 +216,27 @@
     "{{ aip_cs_controller_overlay_dir }}/{{ aip_cs_src_base_rel }}/"
   register: aip_cs_base_rsync
   changed_when: true
+  failed_when: aip_cs_base_rsync.rc != 0
 
-- name: Sync region overrides into overlay (if configured)
-  delegate_to: localhost
+- name: Debug base rsync output
+  debug:
+    var: aip_cs_base_rsync.stdout_lines
+
+- name: Ensure region overrides overlay dir exists (if configured)
   when:
-    - "'region' in aip_cs_precedence"
     - region_slug | default('') | length > 0
     - aip_cs_src_region_resolved | length > 0
+  delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
+  file:
+    path: "{{ aip_cs_controller_overlay_dir }}/{{ aip_cs_src_region_resolved }}"
+    state: directory
+    mode: "0755"
+
+- name: Sync region overrides into overlay (if configured)
+  when:
+    - region_slug | default('') | length > 0
+    - aip_cs_src_region_resolved | length > 0
+  delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
   environment:
     CLOUDSDK_CORE_PROJECT: "{{ aip_cs_gcp_project }}"
   command: >
@@ -250,33 +247,49 @@
   changed_when: aip_cs_region_rsync.rc == 0
   failed_when: false
 
-- name: Sync warehouse overrides into overlay (if configured)
-  delegate_to: localhost
+- name: Ensure warehouse overrides overlay dir exists (if configured)
   when:
-    - "'warehouse' in aip_cs_precedence"
     - warehouse_slug | default('') | length > 0
     - aip_cs_src_warehouse_resolved | length > 0
+  delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
+  file:
+    path: "{{ aip_cs_controller_overlay_dir }}/{{ aip_cs_src_warehouse_resolved }}"
+    state: directory
+    mode: "0755"
+
+- name: Sync warehouse overrides into overlay (if configured)
+  when:
+    - warehouse_slug | default('') | length > 0
+    - aip_cs_src_warehouse_resolved | length > 0
+  delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
   environment:
     CLOUDSDK_CORE_PROJECT: "{{ aip_cs_gcp_project }}"
   command: >
     gsutil -m rsync -r
     "{{ aip_cs_base_url }}/{{ aip_cs_src_warehouse_resolved }}"
     "{{ aip_cs_controller_overlay_dir }}/{{ aip_cs_src_warehouse_resolved }}/"
-  register: aip_cs_wh_rsync
-  changed_when: aip_cs_wh_rsync.rc == 0
+  register: aip_cs_warehouse_rsync
+  changed_when: aip_cs_warehouse_rsync.rc == 0
   failed_when: false
 
-# First check whether the store override path actually exists
+- name: Ensure store overrides overlay dir exists (if configured)
+  when:
+    - store_slug | default('') | length > 0
+    - aip_cs_src_store_resolved | length > 0
+  delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
+  file:
+    path: "{{ aip_cs_controller_overlay_dir }}/{{ aip_cs_src_store_resolved }}"
+    state: directory
+    mode: "0755"
+
 - name: Check if store overrides path exists in GCS
   when:
-    - "'store' in aip_cs_precedence"
     - store_slug | default('') | length > 0
-    - warehouse_slug | default('') | length > 0
     - aip_cs_src_store_resolved | length > 0
-  delegate_to: localhost
+  delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
   environment:
     CLOUDSDK_CORE_PROJECT: "{{ aip_cs_gcp_project }}"
-  shell: >
+  command: >
     gsutil ls "{{ aip_cs_base_url }}/{{ aip_cs_src_store_resolved }}/**"
   register: aip_cs_store_ls
   changed_when: false
@@ -284,12 +297,10 @@
 
 - name: Sync store overrides into overlay (if configured)
   when:
-    - "'store' in aip_cs_precedence"
     - store_slug | default('') | length > 0
-    - warehouse_slug | default('') | length > 0
     - aip_cs_src_store_resolved | length > 0
     - aip_cs_store_ls.rc == 0
-  delegate_to: localhost
+  delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
   environment:
     CLOUDSDK_CORE_PROJECT: "{{ aip_cs_gcp_project }}"
   command: >
@@ -300,280 +311,127 @@
   changed_when: aip_cs_store_rsync.rc == 0
   failed_when: false
 
-- name: Sync device overrides into overlay (if configured)
-  delegate_to: localhost
+- name: Ensure device overrides overlay dir exists (if configured)
   when:
-    - "'device' in aip_cs_precedence"
     - device_slug | default('') | length > 0
     - aip_cs_src_device_resolved | length > 0
+  delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
+  file:
+    path: "{{ aip_cs_controller_overlay_dir }}/{{ aip_cs_src_device_resolved }}"
+    state: directory
+    mode: "0755"
+
+- name: Sync device overrides into overlay (if configured)
+  when:
+    - device_slug | default('') | length > 0
+    - aip_cs_src_device_resolved | length > 0
+  delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
   environment:
     CLOUDSDK_CORE_PROJECT: "{{ aip_cs_gcp_project }}"
   command: >
     gsutil -m rsync -r
     "{{ aip_cs_base_url }}/{{ aip_cs_src_device_resolved }}"
     "{{ aip_cs_controller_overlay_dir }}/{{ aip_cs_src_device_resolved }}/"
-  register: aip_cs_dev_rsync
-  changed_when: aip_cs_dev_rsync.rc == 0
+  register: aip_cs_device_rsync
+  changed_when: aip_cs_device_rsync.rc == 0
   failed_when: false
 
-# Checksums list (for Scenario 6) – keep it in checksums/sha256.lst
-- name: Download checksum list from GCS (sha256.lst) if defined
-  delegate_to: localhost
-  when: aip_cs_src_checksums_rel | length > 0
-  environment:
-    CLOUDSDK_CORE_PROJECT: "{{ aip_cs_gcp_project }}"
-  command: >
-    gsutil cp
-    "{{ aip_cs_base_url }}/{{ aip_cs_src_checksums_rel }}"
-    "{{ aip_cs_controller_overlay_dir }}/checksums/sha256.lst"
-  register: aip_cs_checksums_cp
-  changed_when: true
+# ---------------------------------------------------------------------------
+# 5. Overlay -> Jetson staging
+# ---------------------------------------------------------------------------
 
-# ==========================
-# 4. Stage content on Jetson
-# ==========================
-
-- name: Compute resolved target_version
-  set_fact:
-    aip_cs_target_version: >-
-      {{
-        (
-          target_version
-            | default(aip_cs_metadata.version | default('1'))
-        ) | string
-      }}
-
-- name: Compute staging paths on Jetson
-  set_fact:
-    aip_cs_stage_dir: "{{ aip_state_stage_dir }}/{{ bundle_id }}@{{ aip_cs_target_version }}"
-    aip_cs_lock_path: "{{ aip_state_root }}/locks/aip-content-{{ bundle_id }}.lock"
-
-- name: Compute managed index path on Jetson
-  set_fact:
-    aip_cs_managed_index_path: "{{ aip_cs_stage_dir }}/.aip-managed-{{ bundle_id }}.json"
-
-- name: Ensure AIP locks dir exists
-  become: true
-  file:
-    path: "{{ aip_state_root }}/locks"
-    state: directory
-    mode: "0755"
-
-- name: Ensure staging dir exists on Jetson
-  become: true
+- name: Ensure stage_dir exists on target
   file:
     path: "{{ aip_cs_stage_dir }}"
     state: directory
-    owner: "{{ aip_deploy_user }}"
-    group: "{{ aip_deploy_user }}"
     mode: "0755"
 
-# Push overlay -> Jetson staging (resumable via rsync --partial)
 - name: Sync overlay from controller to Jetson staging
-  delegate_to: localhost
-  ansible.posix.synchronize:
+  synchronize:
     src: "{{ aip_cs_controller_overlay_dir }}/"
     dest: "{{ aip_cs_stage_dir }}/"
-    mode: push          # controller -> Jetson
-    archive: true
-    delete: false
-    partial: true       # resumable transfers (Scenario 7)
-    private_key: "{{ hostvars[inventory_hostname].ansible_ssh_private_key_file | default('/home/koffcheg/.ssh/ansible_hub') }}"
+    mode: push
     rsync_opts:
-      - "--no-times"    # don't try to preserve mtimes
+      - "--archive"
+      - "--delete"
+  delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
 
-# ==============================
-# 5. Verify checksums in staging
-# ==============================
+# ---------------------------------------------------------------------------
+# 6. Promote staged content into dest_root (with backups, receipts, pruning)
+# ---------------------------------------------------------------------------
 
-- name: Verify checksums in staging if sha256.lst present
-  become: true
-  when: not aip_content_dry_run
-  args:
-    chdir: "{{ aip_cs_stage_dir }}/{{ aip_cs_src_base_rel }}"
-  shell: |
-    if [ -f ../checksums/sha256.lst ]; then
-      sha256sum --check ../checksums/sha256.lst
-    else
-      echo "No checksums/sha256.lst present; skipping checksum verification."
-    fi
-  register: aip_cs_checksum_verify
-  changed_when: false
-  failed_when: aip_cs_checksum_verify.rc != 0
+- name: Compute dest_root from manifest.dest.root
+  set_fact:
+    aip_cs_dest_root: "{{ aip_cs_dest.root }}"
 
-# ==============================================
-# 6. Backup, surgical delete, promote, post, etc
-# ==============================================
+- name: Fail if dest_root is outside allowed roots
+  when: aip_cs_dest_root | length == 0 or (aip_cs_dest_root | regex_search('^(' + (allowed_roots | join('|')) + ')') is not truthy)
+  fail:
+    msg: >
+      dest.root='{{ aip_cs_dest_root }}' is empty or outside allowed_roots={{ allowed_roots }}.
 
-- block:
-    # 6.0. Set timestamp for this operation
-    - name: Set timestamp for this content sync operation
-      set_fact:
-        aip_content_timestamp: "{{ lookup('pipe', 'date -u +%Y%m%dT%H%M%SZ') }}"
+- name: Ensure dest_root parent exists
+  file:
+    path: "{{ aip_cs_dest_root | dirname }}"
+    state: directory
+    mode: "0755"
 
-    # 6.1. Acquire simple lock
-    - name: Acquire AIP content lock
-      become: true
-      file:
-        path: "{{ aip_cs_lock_path }}"
-        state: touch
-        mode: "0644"
+- name: Capture pre-existing content checksum (if any)
+  stat:
+    path: "{{ aip_cs_dest_root }}"
+  register: aip_cs_dest_stat
 
-    # 6.2. Resolve dest_root from manifest.dest.root template
-    - name: Resolve current deployment path
-      become: true
-      stat:
-        path: "{{ aip_deploy_root }}/current"
-        follow: yes
-      register: aip_cs_current_link
+- name: Backup existing content if dest_root exists and enable_simple_backup is true
+  when:
+    - enable_simple_backup | default(false) | bool
+    - aip_cs_dest_stat.stat.exists
+  command: >
+    cp -a "{{ aip_cs_dest_root }}" "{{ aip_cs_backup_dir }}"
+  register: aip_cs_backup_cmd
+  changed_when: aip_cs_backup_cmd.rc == 0
+  failed_when: false
 
-    - name: Set current deployment real path
-      set_fact:
-        aip_cs_current_deploy_path: "{{ aip_cs_current_link.stat.path | default(aip_deploy_root ~ '/current') }}"
+- name: Debug backup result
+  when:
+    - enable_simple_backup | default(false) | bool
+  debug:
+    var: aip_cs_backup_cmd
 
-    - name: Compute dest_root from manifest.dest.root
-      set_fact:
-        aip_cs_dest_root: >-
-          {{
-            (aip_cs_dest.root
-              | replace('{deployments_root}', aip_deploy_root)
-              | replace('{current}', 'current')
-            )
-          }}
-
-    - name: Fail if dest_root is not defined in manifest.dest.root
-      fail:
-        msg: "aip_content_sync: manifest.dest.root is required but missing."
-      when: aip_cs_dest_root is not defined or aip_cs_dest_root | trim | length == 0
-
-    # 6.3. Backup existing dest_root (if present)
-    - name: Check if dest_root exists
-      become: true
-      stat:
-        path: "{{ aip_cs_dest_root }}"
-      register: aip_cs_dest_stat
-
-    - name: Prepare backup dir path
-      set_fact:
-        aip_cs_backup_dir: "{{ aip_state_backups_dir }}/{{ bundle_id_normalized }}/{{ aip_content_timestamp }}"
-
-    - name: Backup existing content if dest_root exists
-      become: true
-      when: aip_cs_dest_stat.stat.exists
-      shell: |
-        mkdir -p "{{ aip_cs_backup_dir }}"
-        rsync -a "{{ aip_cs_dest_root }}/" "{{ aip_cs_backup_dir }}/"
-      register: aip_cs_backup_rs
-      changed_when: aip_cs_backup_rs.rc == 0
-
-    # Optional: keep only last 2 backups for this bundle
-    - name: Prune old backups (keep last 2)
-      become: true
-      when: aip_cs_dest_stat.stat.exists
-      shell: |
-        set -e
-        if [ -d "{{ aip_state_backups_dir }}/{{ bundle_id_normalized }}" ]; then
-          cd "{{ aip_state_backups_dir }}/{{ bundle_id_normalized }}"
-          ls -1dt */ 2>/dev/null | tail -n +3 | xargs -r rm -rf --
-        fi
-      changed_when: false
-
-    # 6.4. Compute new file list from staging (relative paths)
-    - name: Compute file list in staging (relative)
-      become: true
-      args:
-        chdir: "{{ aip_cs_stage_dir }}"
-      shell: |
-        find . -type f -print | sed 's#^\./##'
-      register: aip_cs_staged_files
-      changed_when: false
-
-    - name: Store staged file list fact
-      set_fact:
-        aip_cs_new_files: "{{ aip_cs_staged_files.stdout_lines | default([]) }}"
-
-    # 6.5. Load previous managed index from dest (if any) for surgical delete
-    - name: Load previous managed index if present
-      become: true
-      shell: |
-        if [ -f "{{ aip_cs_dest_root }}/.aip-managed-{{ bundle_id }}.json" ]; then
-          cat "{{ aip_cs_dest_root }}/.aip-managed-{{ bundle_id }}.json"
-        else
-          echo '{"files":[]}'
-        fi
-      register: aip_cs_prev_index_raw
-      changed_when: false
-
-    - name: Parse previous managed index
-      set_fact:
-        aip_cs_prev_index: "{{ aip_cs_prev_index_raw.stdout | from_json }}"
-        aip_cs_prev_files: "{{ (aip_cs_prev_index.files | default([])) if (aip_cs_prev_index is mapping) else [] }}"
-
-    # 6.6. Compute surgical delete set (prev_files - new_files)
-    - name: Compute surgical delete files
-      set_fact:
-        aip_cs_surgical_delete_files: "{{ aip_cs_prev_files | difference(aip_cs_new_files) }}"
-
-    - name: Remove files no longer in bundle (surgical delete)
-      become: true
-      when: aip_cs_surgical_delete_files | length > 0
-      file:
-        path: "{{ aip_cs_dest_root }}/{{ item }}"
-        state: absent
-      loop: "{{ aip_cs_surgical_delete_files }}"
-
-    # 6.7. Strict prune extraneous files if prune_extraneous == true
-    - name: Collect all files currently in dest_root (for strict prune)
-      become: true
-      when: prune_extraneous | bool
-      args:
-        chdir: "{{ aip_cs_dest_root }}"
-      shell: |
-        find . -type f -print | sed 's#^\./##'
-      register: aip_cs_dest_all_files
-      changed_when: false
-
-    - name: Compute extraneous files to prune
-      when: prune_extraneous | bool
-      set_fact:
-        aip_cs_extraneous_files: "{{ aip_cs_dest_all_files.stdout_lines | difference(aip_cs_new_files) }}"
-
-    - name: Delete extraneous files (strict mirror)
-      become: true
-      when: prune_extraneous | bool and (aip_cs_extraneous_files | length > 0)
-      file:
-        path: "{{ aip_cs_dest_root }}/{{ item }}"
-        state: absent
-      loop: "{{ aip_cs_extraneous_files }}"
-
-    # 6.8. Ensure dest_root exists
-    - name: Ensure dest_root exists
-      become: true
-      file:
-        path: "{{ aip_cs_dest_root }}"
-        state: directory
-        owner: "{{ aip_deploy_user }}"
-        group: "{{ aip_deploy_user }}"
-        mode: "0755"
-
-    # 6.9. Promote from staging to dest (rsync)
-    - name: Promote staged content into dest_root
-      become: true
-      when: not aip_content_dry_run
-      shell: |
+- name: Promote staged content into dest_root
+  block:
+    - name: Rsync staged content into dest_root
+      command: >
         rsync -a "{{ aip_cs_stage_dir }}/" "{{ aip_cs_dest_root }}/"
-      register: aip_cs_promote_rs
-      changed_when: aip_cs_promote_rs.rc == 0
+      register: aip_cs_dest_rsync
+      changed_when: aip_cs_dest_rsync.rc == 0
+
+    - name: Write/update managed index receipt
+      copy:
+        dest: "{{ aip_cs_managed_index_path }}"
+        content: |
+          {
+            "bundle_id": "{{ bundle_id }}",
+            "version": "{{ bundle_version }}",
+            "dest_root": "{{ aip_cs_dest_root }}",
+            "timestamp": "{{ ansible_date_time.iso8601 }}",
+            "host": "{{ inventory_hostname }}"
+          }
+        mode: "0644"
 
     # 6.10. Post actions (docker compose restart, etc.)
     - name: Run compose restart post-actions (if defined)
       become: true
       when:
-        - aip_compose_refresh_after_sync
-        - aip_cs_post | length > 0
+        - (aip_compose_refresh_after_sync | default(false)) | bool
+        - (aip_cs_post | default([])) | length > 0
       vars:
         _compose_items: >-
-          {{ aip_cs_post | selectattr('type','equalto','compose') | list }}
+          {{
+            (aip_cs_post | default([]))
+            | selectattr('type', 'defined')
+            | selectattr('type','equalto','compose')
+            | list
+          }}
       block:
         - name: Restart compose services as per manifest
           when: _compose_items | length > 0
@@ -586,77 +444,93 @@
           register: aip_cs_post_compose
           changed_when: aip_cs_post_compose.rc == 0
 
-    # 6.11. Write managed index in dest_root
-    - name: Write new managed index to dest_root
-      become: true
-      copy:
-        dest: "{{ aip_cs_dest_root }}/.aip-managed-{{ bundle_id }}.json"
-        owner: "{{ aip_deploy_user }}"
-        group: "{{ aip_deploy_user }}"
-        mode: "0644"
-        content: |
-          {{ {'bundle_id': bundle_id, 'files': aip_cs_new_files} | to_nice_json }}
-
-    # 6.12. Write sync receipt
-    - name: Write content sync receipt
-      become: true
-      copy:
-        dest: "{{ aip_state_receipts_dir }}/content-{{ bundle_id }}.receipt"
-        owner: "{{ aip_deploy_user }}"
-        group: "{{ aip_deploy_user }}"
-        mode: "0644"
-        content: |
-          bundle_id={{ bundle_id }}
-          bundle_type={{ bundle_type }}
-          dest_root={{ aip_cs_dest_root }}
-          region={{ region_slug }}
-          warehouse={{ warehouse_slug }}
-          store={{ store_slug }}
-          device={{ device_slug }}
-          prune_extraneous={{ prune_extraneous }}
-          synced_at={{ aip_content_timestamp }}
-          host={{ inventory_hostname }}
-
   rescue:
-    # Rollback from backup if promotion block fails after backup step
     - name: Roll back from backup if available
-      become: true
       when:
-        - aip_cs_backup_dir is defined
-        - aip_cs_backup_dir | length > 0
-        - (aip_cs_dest_stat.stat.exists | default(false))
-      shell: |
-        if [ -d "{{ aip_cs_backup_dir }}" ]; then
-          rsync -a --delete "{{ aip_cs_backup_dir }}/" "{{ aip_cs_dest_root }}/"
-        else
-          echo "No backup dir {{ aip_cs_backup_dir }} to rollback from."
-        fi
+        - enable_simple_backup | default(false) | bool
+        - aip_cs_backup_cmd is defined
+        - aip_cs_backup_cmd.rc == 0
+      block:
+        - name: Remove partially updated dest_root
+          file:
+            path: "{{ aip_cs_dest_root }}"
+            state: absent
 
-    - name: Mark failed receipt
-      become: true
-      copy:
-        dest: "{{ aip_state_receipts_dir }}/content_sync_{{ bundle_id_normalized }}_{{ aip_content_timestamp | default('unknown_ts') }}.failed"
-        owner: "{{ aip_deploy_user }}"
-        group: "{{ aip_deploy_user }}"
-        mode: "0644"
-        content: |
-          bundle_id={{ bundle_id_normalized }}
-          manifest_url={{ manifest_url }}
-          dest_root={{ aip_cs_dest_root | default('unknown_dest') }}
-          failed_at={{ aip_content_timestamp | default('unknown') }}
-          host={{ inventory_hostname }}
-          reason={{ aip_failure_reason | default('unknown') }}
+        - name: Restore backup to dest_root
+          command: >
+            cp -a "{{ aip_cs_backup_dir }}" "{{ aip_cs_dest_root }}"
+          register: aip_cs_restore_cmd
+          changed_when: aip_cs_restore_cmd.rc == 0
+          failed_when: aip_cs_restore_cmd.rc != 0
 
-  always:
-    - name: Remove AIP content lock
-      become: true
+    - name: Fail role due to promotion error
+      fail:
+        msg: >
+          Failed to promote staged content into '{{ aip_cs_dest_root }}'.
+          See previous task errors for details.
+
+# ---------------------------------------------------------------------------
+# 7. Surgical prune of extraneous content (optional)
+# ---------------------------------------------------------------------------
+
+- name: Prune content not in new manifest (if enabled)
+  when:
+    - prune_extraneous | default(false) | bool
+  block:
+    - name: Compute list of live files from stage_dir
+      find:
+        paths: "{{ aip_cs_stage_dir }}"
+        file_type: file
+      register: aip_cs_live_files
+
+    - name: Compute list of existing files in dest_root
+      find:
+        paths: "{{ aip_cs_dest_root }}"
+        file_type: file
+      register: aip_cs_dest_files
+
+    - name: Mark extraneous files (present in dest_root but not in stage_dir)
+      set_fact:
+        aip_cs_extraneous_files: >-
+          {{
+            aip_cs_dest_files.files
+            | map(attribute='path')
+            | difference(
+                aip_cs_live_files.files | map('extract', attribute='path')
+              )
+          }}
+
+    - name: Remove extraneous files
       file:
-        path: "{{ aip_cs_lock_path }}"
+        path: "{{ item }}"
         state: absent
+      loop: "{{ aip_cs_extraneous_files | default([]) }}"
 
-    - name: Optionally cleanup staging dir on Jetson
-      become: true
-      when: not aip_content_dry_run
-      file:
-        path: "{{ aip_cs_stage_dir }}"
-        state: absent
+# ---------------------------------------------------------------------------
+# 8. Health check (optional)
+# ---------------------------------------------------------------------------
+
+- name: Run healthcheck command (if enabled)
+  when:
+    - healthcheck.enabled | default(false) | bool
+    - healthcheck.command | default('') | length > 0
+  block:
+    - name: Execute healthcheck command
+      shell: "{{ healthcheck.command }}"
+      register: aip_cs_healthcheck
+      failed_when: aip_cs_healthcheck.rc != 0
+      changed_when: false
+
+    - name: Debug healthcheck output
+      debug:
+        var: aip_cs_healthcheck.stdout_lines
+
+# ---------------------------------------------------------------------------
+# 9. Cleanup / done
+# ---------------------------------------------------------------------------
+
+- name: "AIP content sync | Completed"
+  debug:
+    msg: >
+      AIP content sync completed for bundle_id='{{ bundle_id }}'
+      and target_version='{{ bundle_version }}'.

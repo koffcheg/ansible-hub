@@ -101,7 +101,7 @@ target_version: "current"
 # Whether to execute docker compose post-actions as described in manifest.post
 # (e.g. restarting frontend/state_manager) after a successful sync.
 # If no post section is present in the manifest, this does nothing even if true.
-aip_compose_refresh_after_sync: true
+aip_compose_refresh_after_sync: false
 
 # Dry run mode:
 #
