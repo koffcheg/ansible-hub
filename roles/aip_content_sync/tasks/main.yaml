@@ -467,12 +467,32 @@
     chdir: "{{ aip_cs_controller_overlay_dir }}"
   register: aip_cs_checksum_verify
   changed_when: false
-  failed_when: aip_cs_checksum_verify.rc != 0
+  failed_when: false
+
+- name: Set checksum verification result fact
+  when: aip_cs_checksum_ls.rc == 0
+  set_fact:
+    aip_cs_checksums_ok: "{{ aip_cs_checksum_verify.rc == 0 }}"
 
 - name: Debug checksum verification output
   when: aip_cs_checksum_ls.rc == 0
   debug:
     var: aip_cs_checksum_verify.stdout_lines
+
+- name: Skip content sync because checksum verification failed
+  when:
+    - aip_cs_checksum_ls.rc == 0
+    - (aip_cs_checksums_ok | default(true)) | bool == false
+  debug:
+    msg: >
+      Skipping bundle '{{ bundle_id }}' on host '{{ inventory_hostname }}'
+      because checksum verification failed (rc={{ aip_cs_checksum_verify.rc }}).
+
+- name: Stop processing this host (checksum failure)
+  when:
+    - aip_cs_checksum_ls.rc == 0
+    - (aip_cs_checksums_ok | default(true)) | bool == false
+  meta: end_host
 
 # ---------------------------------------------------------------------------
 # 5. Overlay -> Jetson staging
