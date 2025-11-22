@@ -167,6 +167,33 @@
         | default(['device', 'store', 'warehouse', 'region', 'base'])
       }}
 
+- name: Apply behaviour flags from manifest rules
+  set_fact:
+    enable_simple_backup: >-
+      {{
+        (
+          vars.enable_simple_backup
+          if ('enable_simple_backup' in vars)
+          else (
+            aip_cs_rules.enable_simple_backup
+            if (aip_cs_rules is mapping and 'enable_simple_backup' in aip_cs_rules)
+            else false
+          )
+        )
+      }}
+    prune_extraneous: >-
+      {{
+        (
+          vars.prune_extraneous
+          if ('prune_extraneous' in vars)
+          else (
+            aip_cs_rules.prune_extraneous
+            if (aip_cs_rules is mapping and 'prune_extraneous' in aip_cs_rules)
+            else false
+          )
+        )
+      }}
+
 # ---------------------------------------------------------------------------
 # 3. Target gating
 # ---------------------------------------------------------------------------
