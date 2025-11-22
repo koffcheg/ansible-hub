@@ -29,7 +29,7 @@ aip_deploy_root: "/home/checkout/deployments"
 # Linux user that owns the deployment tree and receives files from Ansible
 aip_deploy_user: "checkout"
 
-# AIP state roots (created by jetson_aip_prereqs / jetson_app_stack roles)
+# AIP state root (created by jetson_aip_prereqs / jetson_app_stack roles)
 aip_state_root: "/opt/aip/state"
 
 # Staging area where new bundles are rsynced before promotion
@@ -46,8 +46,6 @@ aip_state_receipts_dir: "{{ aip_state_root }}/receipts"
 # -------------------------------------------------------------------
 
 # Older / shorter names used inside the tasks file
-# (these are what your failing task "Ensure AIP base state directories exist"
-# is referencing).
 aip_state_dir: "{{ aip_state_root }}"
 stage_root: "{{ aip_state_stage_dir }}"
 backups_root: "{{ aip_state_backups_dir }}"
@@ -55,10 +53,19 @@ receipts_root: "{{ aip_state_receipts_dir }}"
 
 # For manifest.dest.root templates such as:
 #   '{deployments_root}/{current}/app/config'
-# the tasks expand these placeholders.
 deployments_root: "{{ aip_deploy_root }}"
 current: "current"   # just the symlink name segment, used in templates
 
+# Where the controller will build per-host working dirs and overlays.
+# Can be overridden if you want a different scratch SSD, etc.
+aip_cs_work_dir: "{{ aip_cs_controller_tmp_root }}"
+
+# Controller host that has gsutil and access to the bucket.
+aip_cs_controller_host: "localhost"
+
+# Root paths that dest.root is allowed to land under.
+allowed_roots:
+  - "{{ aip_deploy_root }}"
 
 # =========================
 # 3. Content bundle identity
@@ -71,10 +78,8 @@ current: "current"   # just the symlink name segment, used in templates
 #   "broken-update-v99"    (Scenario 3)
 bundle_id: ""
 
-# bundle_type is OPTIONAL.
-# If not set, the role derives it from the manifest path:
-#   gs://<bucket>/content/<bundle_type>/<bundle_id>/manifest.yml
-# so bundle_type will be "config", "ad", "ui", "features", etc.
+# Optional logical bundle type; when omitted we auto-discover manifest
+# in the bucket, so this is usually left blank.
 bundle_type: ""
 
 
@@ -82,10 +87,7 @@ bundle_type: ""
 # 4. Targeting / gating slugs
 # ==============================
 
-# These are used to resolve override paths and gating rules:
-#   overrides/region/{region_slug}
-#   overrides/store/{region_slug}/{warehouse_slug}/{store_slug}
-#   target.regions / target.stores / target.devices in manifest.target
+# These are used both for override paths and for manifest.target gating.
 region_slug: ""
 warehouse_slug: ""
 store_slug: ""
@@ -121,6 +123,10 @@ target_version: "current"
 # If no post section is present in the manifest, this does nothing even if true.
 aip_compose_refresh_after_sync: false
 
+# Simple backup toggle. When true, we perform a naive cp -a of dest_root
+# to aip_state_backups_dir/@<timestamp> before promotion and use it for rollback.
+enable_simple_backup: false
+
 # Dry run mode:
 #
 # - If true:
@@ -130,3 +136,9 @@ aip_compose_refresh_after_sync: false
 # - If false:
 #     Perform full staging, checksum verify, backup, promote and post-actions.
 aip_content_dry_run: false
+
+# Optional healthcheck structure; normally provided from inventory/group_vars.
+# healthcheck:
+#   enabled: true
+#   command: "curl -f http://localhost:8080/healthz"
+healthcheck: {}

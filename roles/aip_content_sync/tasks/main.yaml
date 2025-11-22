@@ -1,18 +1,23 @@
 ---
 # Main orchestration tasks for AIP content sync.
 # This role:
-#   - Downloads a manifest from GCS.
+#   - Locates and downloads a manifest from GCS.
 #   - Parses metadata, source/dest info, and rules.
-#   - Builds a GCS -> controller overlay.
+#   - Builds a GCS -> controller overlay (base + overrides).
 #   - Stages content on the Jetson.
+#   - Optionally verifies checksums.
 #   - Promotes staged content into final dest_root.
-#   - Manages receipts, backups, and surgical deletion of old content.
+#   - Manages receipts, backups, and optional pruning.
 
 - name: "AIP content sync | Start"
   debug:
     msg: >
       Starting AIP content sync for bundle_id='{{ bundle_id }}'
       and target_version='{{ target_version }}'.
+
+# ---------------------------------------------------------------------------
+# 0. Ensure base state directories and derive per-run paths
+# ---------------------------------------------------------------------------
 
 - name: Ensure AIP base state directories exist
   file:
@@ -33,6 +38,10 @@
   set_fact:
     bundle_version: "{{ target_version | default('current') }}"
 
+- name: Compute managed index file name
+  set_fact:
+    managed_index_name: ".aip-managed-{{ bundle_safe_id }}.json"
+
 - name: Compute stage_dir for this run
   set_fact:
     aip_cs_stage_dir: "{{ stage_root }}/{{ bundle_safe_id }}@{{ bundle_version }}"
@@ -45,20 +54,63 @@
   set_fact:
     aip_cs_managed_index_path: "{{ receipts_root }}/{{ managed_index_name }}"
 
+- name: Ensure controller work dir root is set
+  set_fact:
+    aip_cs_work_dir: "{{ aip_cs_work_dir | default(aip_cs_controller_tmp_root) }}"
+
 # ---------------------------------------------------------------------------
-# 1. Download and parse manifest
+# 1. Resolve manifest URL in GCS (explicit, by type, or auto-discover)
+# ---------------------------------------------------------------------------
+
+- name: Initialise manifest_url fact
+  set_fact:
+    aip_cs_manifest_url: "{{ aip_cs_gcs_manifest_url | default('') }}"
+
+- name: Compose manifest_url from bundle_type if provided
+  when:
+    - aip_cs_manifest_url | length == 0
+    - bundle_type | length > 0
+  set_fact:
+    aip_cs_manifest_url: >-
+      gs://{{ aip_cs_bucket }}/content/{{ bundle_type }}/{{ bundle_id }}/manifest.yml
+
+- name: Auto-discover manifest in bucket by bundle_id
+  when: aip_cs_manifest_url | length == 0
+  delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
+  environment:
+    CLOUDSDK_CORE_PROJECT: "{{ aip_cs_gcp_project }}"
+  command: >
+    gsutil ls "gs://{{ aip_cs_bucket }}/content/**/{{ bundle_id }}/manifest.yml"
+  register: aip_cs_manifest_search
+  changed_when: false
+  failed_when: aip_cs_manifest_search.rc not in [0, 1]
+
+- name: Set manifest_url from auto-discovery result
+  when:
+    - aip_cs_manifest_url | length == 0
+    - aip_cs_manifest_search is defined
+    - aip_cs_manifest_search.rc == 0
+    - (aip_cs_manifest_search.stdout_lines | default([])) | length > 0
+  set_fact:
+    aip_cs_manifest_url: "{{ (aip_cs_manifest_search.stdout_lines | first) }}"
+
+- name: Fail if manifest_url is still empty
+  when: aip_cs_manifest_url | length == 0
+  fail:
+    msg: >
+      Could not locate manifest for bundle_id='{{ bundle_id }}' in bucket '{{ aip_cs_bucket }}'.
+      Either provide aip_cs_gcs_manifest_url explicitly or ensure the content tree is uploaded.
+
+# ---------------------------------------------------------------------------
+# 2. Download and parse manifest
 # ---------------------------------------------------------------------------
 
 - name: Ensure local working directory for manifest exists
   file:
-    path: "{{ aip_cs_work_dir | default('/tmp/aip_content') }}/{{ inventory_hostname }}/{{ bundle_safe_id }}"
+    path: "{{ aip_cs_work_dir }}/{{ inventory_hostname }}/{{ bundle_safe_id }}"
     state: directory
     mode: "0755"
   delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
-
-- name: Compute manifest URL (GCS object path)
-  set_fact:
-    aip_cs_manifest_url: "{{ aip_cs_gcs_manifest_url | default(aip_cs_manifest_default_url) }}"
 
 - name: Download manifest.yaml from GCS
   delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
@@ -66,7 +118,7 @@
     CLOUDSDK_CORE_PROJECT: "{{ aip_cs_gcp_project }}"
   command: >
     gsutil cp "{{ aip_cs_manifest_url }}"
-    "{{ aip_cs_work_dir | default('/tmp/aip_content') }}/{{ inventory_hostname }}/{{ bundle_safe_id }}/manifest.yaml"
+    "{{ aip_cs_work_dir }}/{{ inventory_hostname }}/{{ bundle_safe_id }}/manifest.yaml"
   register: aip_cs_manifest_dl
   changed_when: aip_cs_manifest_dl.rc == 0
 
@@ -80,7 +132,7 @@
 - name: Slurp manifest.yaml into a variable
   delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
   slurp:
-    src: "{{ aip_cs_work_dir | default('/tmp/aip_content') }}/{{ inventory_hostname }}/{{ bundle_safe_id }}/manifest.yaml"
+    src: "{{ aip_cs_work_dir }}/{{ inventory_hostname }}/{{ bundle_safe_id }}/manifest.yaml"
   register: aip_cs_manifest_slurp
 
 - name: Parse manifest YAML
@@ -97,43 +149,70 @@
     aip_cs_target: "{{ aip_cs_manifest.target | default({}) }}"
     aip_cs_post: "{{ aip_cs_manifest.post | default([]) }}"
 
-    # Precedence (device > store > warehouse > region > base by default)
+    # Optional precedence (device > store > warehouse > region > base by default)
     aip_cs_precedence: >-
       {{
-        aip_cs_manifest.precedence
+        aip_cs_manifest.rules.precedence
         | default(['device', 'store', 'warehouse', 'region', 'base'])
       }}
 
 # ---------------------------------------------------------------------------
-# 2. Resolve target facts (region, warehouse, store, device)
+# 3. Targeting (gating) evaluation
 # ---------------------------------------------------------------------------
 
-- name: Resolve target device/store/warehouse/region from target section
+- name: Extract target gating lists
   set_fact:
-    region_slug: "{{ aip_cs_target.region_slug | default('') }}"
-    warehouse_slug: "{{ aip_cs_target.warehouse_slug | default('') }}"
-    store_slug: "{{ aip_cs_target.store_slug | default('') }}"
-    device_slug: "{{ aip_cs_target.device_slug | default('') }}"
+    aip_cs_target_regions: "{{ aip_cs_target.regions | default([]) }}"
+    aip_cs_target_warehouses: "{{ aip_cs_target.warehouses | default([]) }}"
+    aip_cs_target_stores: "{{ aip_cs_target.stores | default([]) }}"
+    aip_cs_target_devices: "{{ aip_cs_target.devices | default([]) }}"
 
-- name: Debug resolved target slugs
+- name: Debug targeting and slugs
   debug:
     msg:
       region_slug: "{{ region_slug }}"
       warehouse_slug: "{{ warehouse_slug }}"
       store_slug: "{{ store_slug }}"
       device_slug: "{{ device_slug }}"
+      target_regions: "{{ aip_cs_target_regions }}"
+      target_warehouses: "{{ aip_cs_target_warehouses }}"
+      target_stores: "{{ aip_cs_target_stores }}"
+      target_devices: "{{ aip_cs_target_devices }}"
+
+- name: Evaluate targeting constraints
+  set_fact:
+    aip_cs_gating_match: >-
+      {{
+        (aip_cs_target_regions | length == 0 or region_slug in aip_cs_target_regions)
+        and (aip_cs_target_warehouses | length == 0 or warehouse_slug in aip_cs_target_warehouses)
+        and (aip_cs_target_stores | length == 0 or store_slug in aip_cs_target_stores)
+        and (aip_cs_target_devices | length == 0 or device_slug in aip_cs_target_devices)
+      }}
+
+- name: Skip content sync because target gating does not match this device
+  when: not aip_cs_gating_match
+  debug:
+    msg: >
+      Skipping AIP content sync for bundle_id='{{ bundle_id }}' because manifest.target
+      does not match current slugs:
+      region='{{ region_slug }}', warehouse='{{ warehouse_slug }}',
+      store='{{ store_slug }}', device='{{ device_slug }}'.
+
+- name: Stop processing this host (gating)
+  when: not aip_cs_gating_match
+  meta: end_host
 
 # ---------------------------------------------------------------------------
-# 3. Compute source paths (base + overrides) relative to base_url
+# 4. Compute source paths (base + overrides) and build controller overlay
 # ---------------------------------------------------------------------------
 
 - name: Extract source paths from manifest
   set_fact:
     aip_cs_src_base_rel: "{{ aip_cs_source.base | default('') }}"
-    aip_cs_src_region_rel: "{{ aip_cs_source.overrides.region | default('') }}"
-    aip_cs_src_warehouse_rel: "{{ aip_cs_source.overrides.warehouse | default('') }}"
-    aip_cs_src_store_rel: "{{ aip_cs_source.overrides.store | default('') }}"
-    aip_cs_src_device_rel: "{{ aip_cs_source.overrides.device | default('') }}"
+    aip_cs_src_region_rel: "{{ (aip_cs_source.overrides | default({})).region | default('') }}"
+    aip_cs_src_warehouse_rel: "{{ (aip_cs_source.overrides | default({})).warehouse | default('') }}"
+    aip_cs_src_store_rel: "{{ (aip_cs_source.overrides | default({})).store | default('') }}"
+    aip_cs_src_device_rel: "{{ (aip_cs_source.overrides | default({})).device | default('') }}"
 
 - name: Compute base_url from metadata
   set_fact:
@@ -187,14 +266,10 @@
       store_resolved: "{{ aip_cs_src_store_resolved }}"
       device_resolved: "{{ aip_cs_src_device_resolved }}"
 
-# ---------------------------------------------------------------------------
-# 4. Build overlay on controller (GCS -> controller overlay dir)
-# ---------------------------------------------------------------------------
-
 - name: Compute controller overlay root directory
   set_fact:
     aip_cs_controller_overlay_dir: >-
-      {{ aip_cs_work_dir | default('/tmp/aip_content') }}/{{ inventory_hostname }}/{{ bundle_safe_id }}/overlay
+      {{ aip_cs_work_dir }}/{{ inventory_hostname }}/{{ bundle_safe_id }}/overlay
 
 - name: Ensure overlay subdirs for base content and checksums exist
   delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
@@ -337,7 +412,33 @@
   failed_when: false
 
 # ---------------------------------------------------------------------------
-# 5. Overlay -> Jetson staging
+# 5. Optional checksum verification (sha256)
+# ---------------------------------------------------------------------------
+
+- name: Check if sha256 checksum list exists in GCS
+  delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
+  environment:
+    CLOUDSDK_CORE_PROJECT: "{{ aip_cs_gcp_project }}"
+  command: >
+    gsutil ls "{{ aip_cs_base_url }}/checksums/sha256.lst"
+  register: aip_cs_sha256_ls
+  changed_when: false
+  failed_when: false
+
+- name: Download checksum list from GCS (sha256.lst)
+  when: aip_cs_sha256_ls.rc == 0
+  delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
+  environment:
+    CLOUDSDK_CORE_PROJECT: "{{ aip_cs_gcp_project }}"
+  command: >
+    gsutil cp "{{ aip_cs_base_url }}/checksums/sha256.lst"
+    "{{ aip_cs_controller_overlay_dir }}/checksums/sha256.lst"
+  register: aip_cs_sha256_cp
+  changed_when: aip_cs_sha256_cp.rc == 0
+  failed_when: aip_cs_sha256_cp.rc != 0
+
+# ---------------------------------------------------------------------------
+# 6. Overlay -> Jetson staging
 # ---------------------------------------------------------------------------
 
 - name: Ensure stage_dir exists on target
@@ -356,16 +457,38 @@
       - "--delete"
   delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
 
+- name: Check if sha256.lst exists in staging
+  stat:
+    path: "{{ aip_cs_stage_dir }}/checksums/sha256.lst"
+  register: aip_cs_sha256_stage_stat
+
+- name: Verify checksums in staging if sha256.lst present
+  when: aip_cs_sha256_stage_stat.stat.exists
+  shell: |
+    cd "{{ aip_cs_stage_dir }}"
+    sha256sum -c checksums/sha256.lst
+  register: aip_cs_sha256_verify
+  changed_when: false
+  failed_when: aip_cs_sha256_verify.rc != 0
+
 # ---------------------------------------------------------------------------
-# 6. Promote staged content into dest_root (with backups, receipts, pruning)
+# 7. Promote staged content into dest_root (with backups, receipts, pruning)
 # ---------------------------------------------------------------------------
 
 - name: Compute dest_root from manifest.dest.root
   set_fact:
-    aip_cs_dest_root: "{{ aip_cs_dest.root }}"
+    aip_cs_dest_root_template: "{{ aip_cs_dest.root }}"
+    aip_cs_dest_root: >-
+      {{
+        aip_cs_dest.root
+        | replace('{deployments_root}', deployments_root)
+        | replace('{current}', current)
+      }}
 
 - name: Fail if dest_root is outside allowed roots
-  when: aip_cs_dest_root | length == 0 or (aip_cs_dest_root | regex_search('^(' + (allowed_roots | join('|')) + ')') is not truthy)
+  when: >
+    (aip_cs_dest_root | length == 0) or
+    not (aip_cs_dest_root | regex_search('^(' + (allowed_roots | join('|')) + ')'))
   fail:
     msg: >
       dest.root='{{ aip_cs_dest_root }}' is empty or outside allowed_roots={{ allowed_roots }}.
@@ -376,7 +499,7 @@
     state: directory
     mode: "0755"
 
-- name: Capture pre-existing content checksum (if any)
+- name: Capture pre-existing content state
   stat:
     path: "{{ aip_cs_dest_root }}"
   register: aip_cs_dest_stat
@@ -418,7 +541,6 @@
           }
         mode: "0644"
 
-    # 6.10. Post actions (docker compose restart, etc.)
     - name: Run compose restart post-actions (if defined)
       become: true
       when:
@@ -429,7 +551,7 @@
           {{
             (aip_cs_post | default([]))
             | selectattr('type', 'defined')
-            | selectattr('type','equalto','compose')
+            | selectattr('type', 'equalto', 'compose')
             | list
           }}
       block:
@@ -470,7 +592,7 @@
           See previous task errors for details.
 
 # ---------------------------------------------------------------------------
-# 7. Surgical prune of extraneous content (optional)
+# 8. Prune extraneous content (strict mirror mode)
 # ---------------------------------------------------------------------------
 
 - name: Prune content not in new manifest (if enabled)
@@ -493,11 +615,8 @@
       set_fact:
         aip_cs_extraneous_files: >-
           {{
-            aip_cs_dest_files.files
-            | map(attribute='path')
-            | difference(
-                aip_cs_live_files.files | map('extract', attribute='path')
-              )
+            (aip_cs_dest_files.files | map(attribute='path') | list)
+            | difference(aip_cs_live_files.files | map(attribute='path') | list)
           }}
 
     - name: Remove extraneous files
@@ -507,7 +626,7 @@
       loop: "{{ aip_cs_extraneous_files | default([]) }}"
 
 # ---------------------------------------------------------------------------
-# 8. Health check (optional)
+# 9. Health check (optional)
 # ---------------------------------------------------------------------------
 
 - name: Run healthcheck command (if enabled)
@@ -526,7 +645,7 @@
         var: aip_cs_healthcheck.stdout_lines
 
 # ---------------------------------------------------------------------------
-# 9. Cleanup / done
+# 10. Cleanup / done
 # ---------------------------------------------------------------------------
 
 - name: "AIP content sync | Completed"
