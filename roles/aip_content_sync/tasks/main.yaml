@@ -664,22 +664,45 @@
         file_type: file
       register: aip_cs_dest_files
 
-    - name: Mark extraneous files (present in dest_root but not in stage_dir)
+    - name: Build relative path list for live files (from stage_dir)
       set_fact:
-        aip_cs_extraneous_files: >-
+        aip_cs_live_rel_paths: >-
+          {{
+            aip_cs_live_files.files
+            | map(attribute='path')
+            | map('regex_replace', '^' ~ aip_cs_stage_dir ~ '/', '')
+            | list
+          }}
+
+    - name: Build relative path list for dest files (from dest_root)
+      set_fact:
+        aip_cs_dest_rel_paths: >-
           {{
             aip_cs_dest_files.files
             | map(attribute='path')
-            | difference(
-                aip_cs_live_files.files | map(attribute='path')
-              )
+            | map('regex_replace', '^' ~ aip_cs_dest_root ~ '/', '')
+            | list
           }}
 
+    - name: Mark extraneous files (present in dest_root but not in stage_dir)
+      set_fact:
+        aip_cs_extraneous_rel_paths: >-
+          {{
+            aip_cs_dest_rel_paths
+            | difference(aip_cs_live_rel_paths)
+          }}
+
+    - name: Debug extraneous files (if any)
+      debug:
+        var: aip_cs_extraneous_rel_paths
+      when: (aip_cs_extraneous_rel_paths | default([])) | length > 0
+
     - name: Remove extraneous files
+      become: true
       file:
-        path: "{{ item }}"
+        path: "{{ aip_cs_dest_root }}/{{ item }}"
         state: absent
-      loop: "{{ aip_cs_extraneous_files | default([]) }}"
+      loop: "{{ aip_cs_extraneous_rel_paths | default([]) }}"
 
 # ---------------------------------------------------------------------------
 # 8. Health check (optional)
