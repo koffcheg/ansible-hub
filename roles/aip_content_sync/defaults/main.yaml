@@ -1,31 +1,114 @@
-# === GCP / Bucket configuration ===
+---
+# ==============================
+# 1. GCP / Bucket configuration
+# ==============================
 
+# Primary GCS bucket that contains the "content/..." tree.
+# This MUST match where you uploaded ./gcs_content_root from generate_test_ammo.py
 bucket: "content-deployment-lab-01"
+
+# Internal alias used inside the role (don't change unless you know what you're doing)
 aip_cs_bucket: "{{ bucket }}"
+
+# GCP project: reuse aip_gcp_project if it is already defined elsewhere
+# (e.g. in group_vars or by another role), otherwise fall back to the lab project.
 aip_cs_gcp_project: "{{ aip_gcp_project | default('deployment-setup-lab-01') }}"
+
+# Controller-side temp root for AIP content builds (on Ansible Hub)
 aip_cs_controller_tmp_root: "/tmp/aip_content"
 
-# === Jetson directory layout ===
+
+# ==========================================
+# 2. Jetson deployments / state directories
+# ==========================================
+
+# Root where AIP deployments live on the Jetson.
+# Your docker-compose stacks and app live under here.
 aip_deploy_root: "/home/checkout/deployments"
+
+# Linux user that owns the deployment tree and receives files from Ansible
 aip_deploy_user: "checkout"
 
+# AIP state roots (created by jetson_aip_prereqs / jetson_app_stack roles)
 aip_state_root: "/opt/aip/state"
+
+# Staging area where new bundles are rsynced before promotion
 aip_state_stage_dir: "{{ aip_state_root }}/stage"
+
+# Backup root where previous versions of bundles are stored
 aip_state_backups_dir: "{{ aip_state_root }}/backups"
+
+# Receipts for completed/failed content sync operations
 aip_state_receipts_dir: "{{ aip_state_root }}/receipts"
 
-# === Content bundle identity ===
+
+# =========================
+# 3. Content bundle identity
+# =========================
+
+# bundle_id is REQUIRED at runtime (passed via -e or inventory).
+# Examples:
+#   "global-settings-v1"   (Scenario 1)
+#   "summer-promo"         (Scenario 2)
+#   "broken-update-v99"    (Scenario 3)
 bundle_id: ""
+
+# bundle_type is OPTIONAL.
+# If not set, the role derives it from the manifest path:
+#   gs://<bucket>/content/<bundle_type>/<bundle_id>/manifest.yml
+# so bundle_type will be "config", "ad", "ui", "features", etc.
 bundle_type: ""
 
-# === Targeting slugs ===
+
+# ==============================
+# 4. Targeting / gating slugs
+# ==============================
+
+# These are used to resolve override paths and gating rules:
+#   overrides/region/{region_slug}
+#   overrides/store/{region_slug}/{warehouse_slug}/{store_slug}
+#   target.regions / target.stores / target.devices in manifest.target
 region_slug: ""
 warehouse_slug: ""
 store_slug: ""
 device_slug: ""
 
-# === Behaviour flags ===
+
+# =====================
+# 5. Behaviour switches
+# =====================
+
+# Strict mirror flag for destination path:
+#
+# - If false:
+#     Only surgically remove files that were previously managed by this bundle
+#     (based on .aip-managed-<bundle_id>.json) but are not present in the new plan.
+#
+# - If true:
+#     Strict mirror of dest_root: delete any files under dest_root that are
+#     NOT in the current new_files list (Scenario 2: "summer-promo").
+#
+# You normally override this per-run with:
+#   -e "prune_extraneous=true"
 prune_extraneous: false
+
+# Logical version label appended to staging / backup dir names.
+# For content we usually just use "current", giving:
+#   stage/<bundle_id>@current
+#   backups/<bundle_id>/<timestamp>/
 target_version: "current"
+
+# Whether to execute docker compose post-actions as described in manifest.post
+# (e.g. restarting frontend/state_manager) after a successful sync.
+# If no post section is present in the manifest, this does nothing even if true.
 aip_compose_refresh_after_sync: true
+
+# Dry run mode:
+#
+# - If true:
+#     Resolve manifest, build overlay on controller, and plan the changes,
+#     but DO NOT touch the Jetson filesystem (no staging, no promote, no backups).
+#
+# - If false:
+#     Perform full staging, checksum verify, backup, promote and post-actions.
 aip_content_dry_run: false
