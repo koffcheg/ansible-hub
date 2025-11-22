@@ -245,14 +245,23 @@
   delegate_to: localhost
   when:
     - "'store' in aip_cs_precedence"
+    - region_slug | default('') | length > 0
+    - warehouse_slug | default('') | length > 0
     - store_slug | default('') | length > 0
-    - aip_cs_src_store_resolved | length > 0
   environment:
     CLOUDSDK_CORE_PROJECT: "{{ aip_cs_gcp_project }}"
-  command: >
-    gsutil -m rsync -r
-    "{{ aip_cs_base_url }}/{{ aip_cs_src_store_resolved }}"
-    "{{ aip_cs_controller_overlay_dir }}/{{ aip_cs_src_store_resolved }}/"
+  shell: |
+    set -e
+    SRC="gs://{{ aip_cs_bucket }}/content/{{ bundle_type }}/{{ bundle_id }}/overrides/store/{{ region_slug }}/{{ warehouse_slug }}/{{ store_slug }}"
+    DEST="{{ aip_cs_controller_overlay_dir }}/overrides/store/{{ region_slug }}/{{ warehouse_slug }}/{{ store_slug }}/"
+
+    # If the GCS path doesn't exist, just exit 0 (no store override for this combo)
+    if ! gsutil ls "$SRC/**" >/dev/null 2>&1; then
+      exit 0
+    fi
+
+    mkdir -p "$DEST"
+    gsutil -m rsync -r "$SRC" "$DEST"
   register: aip_cs_store_rsync
   changed_when: aip_cs_store_rsync.rc == 0
   failed_when: false
