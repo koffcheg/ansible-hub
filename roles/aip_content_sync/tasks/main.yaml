@@ -15,6 +15,10 @@
       Starting AIP content sync for bundle_id='{{ bundle_id }}'
       and target_version='{{ target_version }}'.
 
+- name: Ensure timestamp fact exists even when gather_facts is false
+  set_fact:
+    aip_cs_timestamp: "{{ lookup('pipe', 'date +%Y%m%dT%H%M%S') }}"
+
 # ---------------------------------------------------------------------------
 # 0. Ensure base state directories and derive per-run paths
 # ---------------------------------------------------------------------------
@@ -48,7 +52,7 @@
 
 - name: Compute backup_dir (timestamped) for this run
   set_fact:
-    aip_cs_backup_dir: "{{ backups_root }}/{{ bundle_safe_id }}@{{ bundle_version }}-{{ ansible_date_time.iso8601_basic }}"
+    aip_cs_backup_dir: "{{ backups_root }}/{{ bundle_safe_id }}@{{ bundle_version }}-{{ aip_cs_timestamp }}"
 
 - name: Compute managed index path for receipts
   set_fact:
