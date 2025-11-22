@@ -195,7 +195,7 @@
   command: >
     gsutil -m rsync -r
     "{{ aip_cs_base_url }}/{{ aip_cs_src_base_rel }}"
-    "{{ aip_cs_controller_overlay_dir }}/{{ aip_cs_src_base_rel }}"
+    "{{ aip_cs_controller_overlay_dir }}/{{ aip_cs_src_base_rel }}/"
   register: aip_cs_base_rsync
   changed_when: true
 
