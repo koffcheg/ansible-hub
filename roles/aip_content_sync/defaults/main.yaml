@@ -1,126 +1,50 @@
 ---
-# ==============================
 # 1. GCP / Bucket configuration
-# ==============================
-
-# Primary GCS bucket that contains the "content/..." tree.
-# This MUST match where you uploaded ./gcs_content_root from generate_test_ammo.py
 bucket: "content-deployment-lab-01"
-
-# Internal alias used inside the role (don't change unless you know what you're doing)
 aip_cs_bucket: "{{ bucket }}"
-
-# GCP project: reuse aip_gcp_project if it is already defined elsewhere
-# (e.g. in group_vars or by another role), otherwise fall back to the lab project.
 aip_cs_gcp_project: "{{ aip_gcp_project | default('deployment-setup-lab-01') }}"
-
-# Controller-side temp root for AIP content builds (on Ansible Hub)
 aip_cs_controller_tmp_root: "/tmp/aip_content"
-
-# Convenience alias used by tasks when building paths on controller
 aip_cs_work_dir: "{{ aip_cs_controller_tmp_root }}"
-
-# Host on which controller-side work is done (normally localhost / Ansible Hub)
 aip_cs_controller_host: "localhost"
 
-
-# ==========================================
 # 2. Jetson deployments / state directories
-# ==========================================
-
-# Root where AIP deployments live on the Jetson.
-# Your docker-compose stacks and app live under here.
 aip_deploy_root: "/home/checkout/deployments"
-
-# Linux user that owns the deployment tree and receives files from Ansible
 aip_deploy_user: "checkout"
 
-# AIP state roots used by the content sync role
 aip_state_root: "/opt/aip/state"
-
-# Staging area where new bundles are rsynced before promotion
 aip_state_stage_dir: "{{ aip_state_root }}/stage"
-
-# Backup root where previous versions of bundles are stored
 aip_state_backups_dir: "{{ aip_state_root }}/backups"
-
-# Receipts for completed/failed content sync operations
 aip_state_receipts_dir: "{{ aip_state_root }}/receipts"
 
-# -------------------------------------------------------------------
-# Derived / compatibility variables used by tasks (do NOT remove)
-# -------------------------------------------------------------------
-
-# Older / shorter names used inside the tasks file
 aip_state_dir: "{{ aip_state_root }}"
 stage_root: "{{ aip_state_stage_dir }}"
 backups_root: "{{ aip_state_backups_dir }}"
 receipts_root: "{{ aip_state_receipts_dir }}"
 
-# For manifest.dest.root templates such as:
-#   '{deployments_root}/{current}/app/config'
-# the tasks expand these placeholders.
 deployments_root: "{{ aip_deploy_root }}"
 current: "current"
 
-# Optional guard to restrict where dest.root may point.  For now this is
-# not enforced in the tasks but is kept for future hardening.
 allowed_roots:
   - "{{ deployments_root }}/current"
   - "{{ deployments_root }}"
   - "/opt/aip"
   - "/var/lib/aip"
 
-# Simple whole-tree backup flag for dest_root
-enable_simple_backup: true
+# behaviour defaults – SAFE values, overridden by manifest.rules or explicit vars
+enable_simple_backup: false     # fallback if NO rules.enable_simple_backup
+prune_extraneous: false         # fallback if NO rules.prune_extraneous
+target_version: "current"
+aip_compose_refresh_after_sync: false
+aip_content_dry_run: false
 
+healthcheck: {}
 
-# =========================
 # 3. Content bundle identity
-# =========================
+bundle_id: ""      # REQUIRED via -e or inventory
+bundle_type: ""    # optional, we prefer autodiscovery
 
-# bundle_id is REQUIRED at runtime (passed via -e or inventory).
-bundle_id: ""
-
-# bundle_type is OPTIONAL.
-# If not set, the role will auto-discover manifest path under:
-#   gs://<bucket>/content/**/<bundle_id>/manifest.yml
-bundle_type: ""
-
-
-# ==============================
-# 4. Targeting / gating slugs
-# ==============================
-
-# These can be passed in via -e or inventory to drive overrides and
-# also to match optional manifest.target.* gating lists.
+# 4. Targeting / gating slugs (host identity)
 region_slug: ""
 warehouse_slug: ""
 store_slug: ""
 device_slug: ""
-
-
-# =====================
-# 5. Behaviour switches
-# =====================
-
-# See design doc for details – these are safe defaults for the lab.
-
-# Strict mirror behaviour for dest_root.  The current role implementation
-# only performs surgical prune when this is true.
-prune_extraneous: false
-
-# Logical version label appended to staging / backup dir names.
-target_version: "current"
-
-# Whether to execute docker compose post-actions as described in
-# manifest.post after a successful sync.
-aip_compose_refresh_after_sync: false
-
-# If true, only build overlay on controller and do NOT touch Jetson
-# filesystem (no staging, no promote, no backups).
-aip_content_dry_run: false
-
-# Optional healthcheck section from inventory/group_vars; the tasks only
-# read `healthcheck.enabled` and `healthcheck.command`.
-healthcheck: {}
