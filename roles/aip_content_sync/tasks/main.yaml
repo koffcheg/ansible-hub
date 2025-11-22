@@ -93,7 +93,7 @@
   set_fact:
     aip_cs_manifest: "{{ lookup('file', aip_cs_controller_manifest_path) | from_yaml }}"
 
-# For convenience (and support metadata.base_url)
+# For convenience
 - name: Normalize manifest fields
   set_fact:
     aip_cs_metadata: "{{ aip_cs_manifest.metadata | default({}) }}"
@@ -105,9 +105,8 @@
     aip_cs_base_url: >-
       {{
         (
-          aip_cs_manifest.base_url
-          | default(
-              aip_cs_metadata.base_url
+          aip_cs_metadata.base_url
+            | default(aip_cs_manifest.base_url
               | default('gs://' ~ aip_cs_bucket ~ '/content/' ~ bundle_type ~ '/' ~ bundle_id)
             )
         )
@@ -138,7 +137,7 @@
 - name: Skip content sync because target gating does not match this device
   when: aip_cs_skip_due_to_target
   debug:
-    msg: "AIP Content Sync: bundle '{{ bundle_id }}' not targeted at this device (region/store/device mismatch)."
+    msg: "AIP Content Sync: bundle '{{ bundle_id }}' not targeted at this device (region/warehouse/store/device mismatch)."
 
 - name: Stop processing this host (gating)
   when: aip_cs_skip_due_to_target
@@ -212,8 +211,7 @@
     "{{ aip_cs_base_url }}/{{ aip_cs_src_base_rel }}"
     "{{ aip_cs_controller_overlay_dir }}/{{ aip_cs_src_base_rel }}/"
   register: aip_cs_base_rsync
-  changed_when: aip_cs_base_rsync.rc == 0
-  failed_when: aip_cs_base_rsync.rc != 0
+  changed_when: true
 
 - name: Sync region overrides into overlay (if configured)
   delegate_to: localhost
@@ -247,6 +245,22 @@
   changed_when: aip_cs_wh_rsync.rc == 0
   failed_when: false
 
+# First check whether the store override path actually exists
+- name: Check if store overrides path exists in GCS
+  delegate_to: localhost
+  when:
+    - "'store' in aip_cs_precedence"
+    - store_slug | default('') | length > 0
+    - warehouse_slug | default('') | length > 0
+    - aip_cs_src_store_resolved | length > 0
+  environment:
+    CLOUDSDK_CORE_PROJECT: "{{ aip_cs_gcp_project }}"
+  shell: >
+    gsutil ls "{{ aip_cs_base_url }}/{{ aip_cs_src_store_resolved }}/**"
+  register: aip_cs_store_ls
+  changed_when: false
+  failed_when: false
+
 - name: Sync store overrides into overlay (if configured)
   delegate_to: localhost
   when:
@@ -254,6 +268,7 @@
     - store_slug | default('') | length > 0
     - warehouse_slug | default('') | length > 0
     - aip_cs_src_store_resolved | length > 0
+    - aip_cs_store_ls.rc == 0
   environment:
     CLOUDSDK_CORE_PROJECT: "{{ aip_cs_gcp_project }}"
   command: >
@@ -299,7 +314,13 @@
 
 - name: Compute resolved target_version
   set_fact:
-    aip_cs_target_version: "{{ target_version | default('current') }}"
+    aip_cs_target_version: >-
+      {{
+        (
+          target_version
+            | default(aip_cs_metadata.version | default('1'))
+        ) | string
+      }}
 
 - name: Compute staging paths on Jetson
   set_fact:
@@ -348,7 +369,7 @@
   become: true
   when: not aip_content_dry_run
   args:
-    chdir: "{{ aip_cs_stage_dir }}/{{ aip_cs_src_base_rel | default('package') }}"
+    chdir: "{{ aip_cs_stage_dir }}/{{ aip_cs_src_base_rel }}"
   shell: |
     if [ -f ../checksums/sha256.lst ]; then
       sha256sum --check ../checksums/sha256.lst
