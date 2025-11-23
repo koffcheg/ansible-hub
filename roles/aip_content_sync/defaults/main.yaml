@@ -44,6 +44,8 @@ bundle_id: ""      # REQUIRED via -e or inventory
 bundle_type: ""    # optional, we prefer autodiscovery
 
 # 4. Targeting / gating slugs (host identity)
+# IMPORTANT: these default to "" so that if nothing is provided
+# and manifest has targets, we simply SKIP instead of failing.
 region_slug: ""
 warehouse_slug: ""
 store_slug: ""

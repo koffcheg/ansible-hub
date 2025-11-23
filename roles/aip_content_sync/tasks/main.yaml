@@ -206,46 +206,9 @@
     target_stores: "{{ aip_cs_target.stores | default([]) }}"
     target_devices: "{{ aip_cs_target.devices | default([]) }}"
 
-# Fail fast if manifest targets specific things but host has no identity slugs
-- name: Fail if manifest targets regions but host has no region_slug
-  when:
-    - target_regions | length > 0
-    - region_slug is not defined or region_slug | length == 0
-  fail:
-    msg: >
-      Manifest for bundle '{{ bundle_id }}' targets regions {{ target_regions }},
-      but host '{{ inventory_hostname }}' has no region_slug defined.
-      Define region_slug in host_vars/group_vars for this host.
-
-- name: Fail if manifest targets warehouses but host has no warehouse_slug
-  when:
-    - target_warehouses | length > 0
-    - warehouse_slug is not defined or warehouse_slug | length == 0
-  fail:
-    msg: >
-      Manifest for bundle '{{ bundle_id }}' targets warehouses {{ target_warehouses }},
-      but host '{{ inventory_hostname }}' has no warehouse_slug defined.
-      Define warehouse_slug in host_vars/group_vars for this host.
-
-- name: Fail if manifest targets stores but host has no store_slug
-  when:
-    - target_stores | length > 0
-    - store_slug is not defined or store_slug | length == 0
-  fail:
-    msg: >
-      Manifest for bundle '{{ bundle_id }}' targets stores {{ target_stores }},
-      but host '{{ inventory_hostname }}' has no store_slug defined.
-      Define store_slug in host_vars/group_vars for this host.
-
-- name: Fail if manifest targets devices but host has no device_slug
-  when:
-    - target_devices | length > 0
-    - device_slug is not defined or device_slug | length == 0
-  fail:
-    msg: >
-      Manifest for bundle '{{ bundle_id }}' targets devices {{ target_devices }},
-      but host '{{ inventory_hostname }}' has no device_slug defined.
-      Define device_slug in host_vars/group_vars for this host.
+# NOTE: we no longer FAIL when slugs are missing.
+# If manifest has targets but slugs are empty, gating_ok will be false
+# and we SKIP this host for this bundle.
 
 - name: Debug targeting and slugs
   debug:
@@ -263,10 +226,10 @@
   set_fact:
     gating_ok: >-
       {{
-        (target_regions | length == 0 or region_slug in target_regions)
-        and (target_warehouses | length == 0 or warehouse_slug in target_warehouses)
-        and (target_stores | length == 0 or store_slug in target_stores)
-        and (target_devices | length == 0 or device_slug in target_devices)
+        (target_regions | length == 0 or (region_slug | default('') | length > 0 and region_slug in target_regions))
+        and (target_warehouses | length == 0 or (warehouse_slug | default('') | length > 0 and warehouse_slug in target_warehouses))
+        and (target_stores | length == 0 or (store_slug | default('') | length > 0 and store_slug in target_stores))
+        and (target_devices | length == 0 or (device_slug | default('') | length > 0 and device_slug in target_devices))
       }}
 
 - name: Skip content sync because target gating does not match this device
