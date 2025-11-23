@@ -40,6 +40,7 @@ aip_content_dry_run: false
 healthcheck: {}
 
 # 3. Content bundle identity
+# bundle_id MUST be provided via -e or inventory.
 bundle_id: ""      # REQUIRED via -e or inventory
 bundle_type: ""    # optional, we prefer autodiscovery
 

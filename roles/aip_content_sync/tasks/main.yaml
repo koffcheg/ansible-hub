@@ -226,10 +226,14 @@
   set_fact:
     gating_ok: >-
       {{
-        (target_regions | length == 0 or (region_slug | default('') | length > 0 and region_slug in target_regions))
-        and (target_warehouses | length == 0 or (warehouse_slug | default('') | length > 0 and warehouse_slug in target_warehouses))
-        and (target_stores | length == 0 or (store_slug | default('') | length > 0 and store_slug in target_stores))
-        and (target_devices | length == 0 or (device_slug | default('') | length > 0 and device_slug in target_devices))
+        (target_regions | length == 0
+          or (region_slug | default('') | length > 0 and region_slug in target_regions))
+        and (target_warehouses | length == 0
+          or (warehouse_slug | default('') | length > 0 and warehouse_slug in target_warehouses))
+        and (target_stores | length == 0
+          or (store_slug | default('') | length > 0 and store_slug in target_stores))
+        and (target_devices | length == 0
+          or (device_slug | default('') | length > 0 and device_slug in target_devices))
       }}
 
 - name: Skip content sync because target gating does not match this device
