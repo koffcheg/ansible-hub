@@ -249,16 +249,13 @@
 - name: Evaluate targeting constraints
   set_fact:
     gating_ok: >-
-      {{
-        # 1) No manifest targets => always apply
+      {{        
         (not aip_cs_manifest_has_targets)
         or
 
-        # 2) Manifest has targets but we didn't provide any slugs => apply bundle
         (aip_cs_manifest_has_targets and not aip_cs_slugs_provided)
         or
 
-        # 3) Manifest has targets AND we provided slugs => enforce matching
         (
           aip_cs_manifest_has_targets
           and aip_cs_slugs_provided
