@@ -206,9 +206,31 @@
     target_stores: "{{ aip_cs_target.stores | default([]) }}"
     target_devices: "{{ aip_cs_target.devices | default([]) }}"
 
-# NOTE: we no longer FAIL when slugs are missing.
-# If manifest has targets but slugs are empty, gating_ok will be false
-# and we SKIP this host for this bundle.
+# NOTE (important behaviour):
+# - If manifest has NO targets => bundle applies to everyone (gating_ok = true).
+# - If manifest HAS targets but we did NOT provide ANY slugs => bundle STILL applies
+#   (we treat this device as "generic" and only apply base content, no overrides).
+# - Only when we BOTH:
+#     * have manifest targets, AND
+#     * provide one or more slugs,
+#   do we ENFORCE matching and potentially SKIP.
+
+- name: Compute manifest/slug gating flags
+  set_fact:
+    aip_cs_manifest_has_targets: >-
+      {{
+        (target_regions | length > 0) or
+        (target_warehouses | length > 0) or
+        (target_stores | length > 0) or
+        (target_devices | length > 0)
+      }}
+    aip_cs_slugs_provided: >-
+      {{
+        (region_slug | default('') | length > 0) or
+        (warehouse_slug | default('') | length > 0) or
+        (store_slug | default('') | length > 0) or
+        (device_slug | default('') | length > 0)
+      }}
 
 - name: Debug targeting and slugs
   debug:
@@ -221,19 +243,38 @@
       warehouse_slug: "{{ warehouse_slug }}"
       store_slug: "{{ store_slug }}"
       device_slug: "{{ device_slug }}"
+      manifest_has_targets: "{{ aip_cs_manifest_has_targets }}"
+      slugs_provided: "{{ aip_cs_slugs_provided }}"
 
 - name: Evaluate targeting constraints
   set_fact:
     gating_ok: >-
       {{
-        (target_regions | length == 0
-          or (region_slug | default('') | length > 0 and region_slug in target_regions))
-        and (target_warehouses | length == 0
-          or (warehouse_slug | default('') | length > 0 and warehouse_slug in target_warehouses))
-        and (target_stores | length == 0
-          or (store_slug | default('') | length > 0 and store_slug in target_stores))
-        and (target_devices | length == 0
-          or (device_slug | default('') | length > 0 and device_slug in target_devices))
+        # 1) No manifest targets => always apply
+        (not aip_cs_manifest_has_targets)
+        or
+
+        # 2) Manifest has targets but we didn't provide any slugs => apply bundle
+        (aip_cs_manifest_has_targets and not aip_cs_slugs_provided)
+        or
+
+        # 3) Manifest has targets AND we provided slugs => enforce matching
+        (
+          aip_cs_manifest_has_targets
+          and aip_cs_slugs_provided
+          and (target_regions | length == 0
+               or (region_slug | default('') | length > 0
+                   and region_slug in target_regions))
+          and (target_warehouses | length == 0
+               or (warehouse_slug | default('') | length > 0
+                   and warehouse_slug in target_warehouses))
+          and (target_stores | length == 0
+               or (store_slug | default('') | length > 0
+                   and store_slug in target_stores))
+          and (target_devices | length == 0
+               or (device_slug | default('') | length > 0
+                   and device_slug in target_devices))
+        )
       }}
 
 - name: Skip content sync because target gating does not match this device
@@ -248,6 +289,7 @@
 - name: Stop processing this host (gating)
   when: not gating_ok
   meta: end_host
+
 
 # ---------------------------------------------------------------------------
 # 4. Compute source paths and build overlay on controller
