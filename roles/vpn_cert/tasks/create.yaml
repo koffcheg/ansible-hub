@@ -1,114 +1,119 @@
 ---
 # roles/vpn_cert/tasks/create.yaml
+
 - name: Check if cert already exists
-  stat:
+  ansible.builtin.stat:
     path: "{{ easy_rsa_dir }}/pki/reqs/{{ client_name }}.req"
   register: cert_check
 
 - name: Abort if cert already exists
-  fail:
+  ansible.builtin.fail:
     msg: "Certificate for {{ client_name }} already exists. Use revoke or rotate."
   when: cert_check.stat.exists
 
 - name: Generate client certificate
-  command: ./easyrsa --batch build-client-full {{ client_name }} nopass
+  ansible.builtin.command: ./easyrsa --batch build-client-full {{ client_name }} nopass
   args:
     chdir: "{{ easy_rsa_dir }}"
 
 - name: Ensure local config dir exists
   delegate_to: localhost
   become: false
-  file:
+  ansible.builtin.file:
     path: "{{ client_config_dir }}"
     state: directory
-    mode: '0700'
-    force: true
+    mode: "0700"
 
 - name: Fetch certs & keys to controller
   become: true
-  fetch:
+  ansible.builtin.fetch:
     src: "{{ item.src }}"
     dest: "{{ client_config_dir }}/{{ item.dest }}"
-    flat: yes
+    flat: true
   loop:
-    - { src: "{{ easy_rsa_dir }}/pki/issued/{{ client_name }}.crt", dest: "{{ client_name }}.crt" }
-    - { src: "{{ easy_rsa_dir }}/pki/private/{{ client_name }}.key", dest: "{{ client_name }}.key" }
-    - { src: "{{ easy_rsa_dir }}/pki/ca.crt", dest: "ca.crt" }
-    - { src: "{{ ta_key_path }}", dest: "ta.key" }
+    - { src: "{{ easy_rsa_dir }}/pki/issued/{{ client_name }}.crt",   dest: "{{ client_name }}.crt" }
+    - { src: "{{ easy_rsa_dir }}/pki/private/{{ client_name }}.key",  dest: "{{ client_name }}.key" }
+    - { src: "{{ easy_rsa_dir }}/pki/ca.crt",                         dest: "ca.crt" }
+    - { src: "{{ ta_key_path }}",                                    dest: "ta.key" }
 
 - name: Template client .conf config
   delegate_to: localhost
   become: false
-  template:
+  ansible.builtin.template:
     src: base_client.conf.j2
     dest: "{{ client_config_dir }}/{{ client_name }}.conf"
 
 - name: Copy dns-hooks.sh from role files
   delegate_to: localhost
-  copy:
+  ansible.builtin.copy:
     src: dns-hooks.sh
     dest: "{{ client_config_dir }}/dns-hooks.sh"
-    mode: '0755'
+    mode: "0755"
 
 - name: Render install.sh into client folder
   delegate_to: localhost
-  template:
+  ansible.builtin.template:
     src: install.sh.j2
     dest: "{{ client_config_dir }}/install.sh"
-    mode: '0755'
+    mode: "0755"
 
 - name: Remove previous archive if it exists
   delegate_to: localhost
-  file:
+  ansible.builtin.file:
     path: "{{ client_config_dir }}/{{ client_name }}.tar.gz"
     state: absent
-  ignore_errors: true
 
-- name: Create client archive
+- name: Create client archive with tar
   delegate_to: localhost
-  become: false
-  archive:
-    path:
-      - "{{ client_config_dir }}/ca.crt"
-      - "{{ client_config_dir }}/{{ client_name }}.crt"
-      - "{{ client_config_dir }}/{{ client_name }}.key"
-      - "{{ client_config_dir }}/ta.key"
-      - "{{ client_config_dir }}/{{ client_name }}.conf"
-      - "{{ client_config_dir }}/dns-hooks.sh"
-      - "{{ client_config_dir }}/install.sh"
-    dest: "{{ client_config_dir }}/{{ client_name }}.tar.gz"
-    format: gz
+  ansible.builtin.command:
+    argv:
+      - tar
+      - czf
+      - "{{ client_config_dir }}/{{ client_name }}.tar.gz"
+      - -C
+      - "{{ client_config_dir }}"
+      - "{{ client_name }}.crt"
+      - "{{ client_name }}.key"
+      - "ca.crt"
+      - "ta.key"
+      - "{{ client_name }}.conf"
+      - "dns-hooks.sh"
+      - "install.sh"
 
 - name: Check archive format after creation
   delegate_to: localhost
-  shell: file "{{ client_config_dir }}/{{ client_name }}.tar.gz"
+  ansible.builtin.command:
+    argv:
+      - file
+      - "{{ client_config_dir }}/{{ client_name }}.tar.gz"
   register: archive_type
+  changed_when: false
 
 - name: Fail if archive is not gzip compressed
-  fail:
+  ansible.builtin.fail:
     msg: "Archive format is invalid: {{ archive_type.stdout }}"
   when: "'gzip compressed data' not in archive_type.stdout"
 
 - name: Save client metadata
   delegate_to: localhost
   become: false
-  copy:
+  ansible.builtin.copy:
     dest: "{{ client_config_dir }}/metadata.yaml"
     content: |
       client_name: {{ client_name }}
       created_at: "{{ lookup('pipe', 'date -Iseconds') }}"
 
 - name: Apply static IP (if defined)
+  when: client_static_ip is defined
   block:
     - name: Ensure CCD directory exists
-      file:
+      ansible.builtin.file:
         path: "{{ openvpn_config_dir }}/ccd"
         state: directory
-        mode: '0755'
+        mode: "0755"
 
     - name: Write static IP mapping
-      copy:
+      ansible.builtin.copy:
         dest: "{{ openvpn_config_dir }}/ccd/{{ client_name }}"
         content: "ifconfig-push {{ client_static_ip }} 255.255.255.0\n"
-        mode: '0644'
-  when: client_static_ip is defined
+        mode: "0644"
