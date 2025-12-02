@@ -58,6 +58,14 @@ bundle_root_url: ""
 # bundle_root_url are empty.
 bundle_type: ""      # optional, we prefer autodiscovery via URLs
 
+# Bandwidth / rsync tuning for Jetson sync
+# 0 = unlimited (rsync default). Set e.g. 200 for ~200 KB/s, etc.
+aip_cs_rsync_bwlimit_kbps: 0
+
+# Extra raw rsync options for sync from controller -> Jetson.
+# Example: ["--progress"] for debugging.
+aip_cs_rsync_extra_opts: []
+
 # 4. Targeting / gating slugs (host identity)
 # IMPORTANT: these default to "" so that if nothing is provided
 # and manifest has targets, we simply SKIP instead of failing.

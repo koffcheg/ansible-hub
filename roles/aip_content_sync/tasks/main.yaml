@@ -617,14 +617,36 @@
     group: "{{ aip_deploy_user }}"
     mode: "0755"
 
+- name: Build rsync base options for Jetson sync
+  set_fact:
+    aip_cs_rsync_opts:
+      - "--archive"
+      - "--delete"
+      - "--partial"
+      - "--partial-dir=.rsync-partial"
+      - "--append-verify"
+      - "--compress"
+
+- name: Add bwlimit to rsync options if configured
+  when: (aip_cs_rsync_bwlimit_kbps | int) > 0
+  set_fact:
+    aip_cs_rsync_opts: >-
+      {{
+        aip_cs_rsync_opts
+        + ['--bwlimit=' ~ (aip_cs_rsync_bwlimit_kbps | int | string)]
+      }}
+
+- name: Add extra rsync options (if any)
+  when: (aip_cs_rsync_extra_opts | default([])) | length > 0
+  set_fact:
+    aip_cs_rsync_opts: "{{ aip_cs_rsync_opts + aip_cs_rsync_extra_opts }}"
+
 - name: Sync overlay from controller to Jetson staging
   synchronize:
     src: "{{ aip_cs_controller_overlay_dir }}/"
     dest: "{{ aip_cs_stage_dir }}/"
     mode: push
-    rsync_opts:
-      - "--archive"
-      - "--delete"
+    rsync_opts: "{{ aip_cs_rsync_opts }}"
     use_ssh_args: yes
   delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
 
