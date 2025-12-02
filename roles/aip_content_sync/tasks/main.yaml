@@ -637,8 +637,16 @@
 - name: Add extra rsync options (if any)
   when: (aip_cs_rsync_extra_opts | default([])) | length > 0
   set_fact:
-    aip_cs_rsync_opts: "{{ aip_cs_rsync_opts + aip_cs_rsync_extra_opts }}"
-
+    aip_cs_rsync_opts: >-
+      {{
+        aip_cs_rsync_opts
+        + (
+            aip_cs_rsync_extra_opts
+            if (aip_cs_rsync_extra_opts is sequence and (aip_cs_rsync_extra_opts is not string))
+            else [aip_cs_rsync_extra_opts]
+          )
+      }}
+                    
 - name: Sync overlay from controller to Jetson staging
   synchronize:
     src: "{{ aip_cs_controller_overlay_dir }}/"
