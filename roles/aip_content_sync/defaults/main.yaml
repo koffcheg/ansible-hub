@@ -39,10 +39,24 @@ aip_content_dry_run: false
 
 healthcheck: {}
 
-# 3. Content bundle identity
-# bundle_id MUST be provided via -e or inventory.
-bundle_id: ""      # REQUIRED via -e or inventory
-bundle_type: ""    # optional, we prefer autodiscovery
+# 3. Content bundle identity / manifest location
+
+# bundle_id MUST be provided via -e or inventory (used for receipts, stage dir, etc.).
+bundle_id: ""        # REQUIRED via -e or inventory
+
+# Optional explicit manifest URL (fully qualified).
+# If set, this is used directly and NO auto-discovery is performed.
+bundle_manifest_url: ""
+
+# Optional base folder that contains manifest.yml and content.
+# If set (and bundle_manifest_url is empty), we probe:
+#   <bundle_root_url>/manifest.yml
+bundle_root_url: ""
+
+# Optional bundle type (legacy convention: config/features/media/etc.).
+# Used only for fallback discovery if both bundle_manifest_url and
+# bundle_root_url are empty.
+bundle_type: ""      # optional, we prefer autodiscovery via URLs
 
 # 4. Targeting / gating slugs (host identity)
 # IMPORTANT: these default to "" so that if nothing is provided

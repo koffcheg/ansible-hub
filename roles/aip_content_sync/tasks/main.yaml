@@ -81,14 +81,47 @@
   set_fact:
     aip_cs_manifest_url: "{{ aip_cs_manifest_url | default('') }}"
 
-- name: Compose manifest_url from bundle_type if provided
+# 2.1. Highest priority: explicit bundle_manifest_url
+- name: Use explicit bundle_manifest_url if provided
+  when:
+    - aip_cs_manifest_url | length == 0
+    - bundle_manifest_url | default('') | length > 0
+  set_fact:
+    aip_cs_manifest_url: "{{ bundle_manifest_url }}"
+
+# 2.2. Next: derive manifest_url from bundle_root_url (folder containing manifest.yml)
+- name: Probe manifest.yml under bundle_root_url (if provided)
+  when:
+    - aip_cs_manifest_url | length == 0
+    - bundle_root_url | default('') | length > 0
+  delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
+  environment:
+    CLOUDSDK_CORE_PROJECT: "{{ aip_cs_gcp_project }}"
+  command: >
+    gsutil ls "{{ bundle_root_url.rstrip('/') }}/manifest.yml"
+  register: aip_cs_manifest_probe
+  changed_when: false
+  failed_when: aip_cs_manifest_probe.rc not in [0, 1]
+
+- name: Set manifest_url from bundle_root_url probe result
+  when:
+    - aip_cs_manifest_url | length == 0
+    - bundle_root_url | default('') | length > 0
+    - aip_cs_manifest_probe.rc == 0
+    - aip_cs_manifest_probe.stdout_lines | length > 0
+  set_fact:
+    aip_cs_manifest_url: "{{ aip_cs_manifest_probe.stdout_lines[0] }}"
+
+# 2.3. Legacy: compose manifest_url from bundle_type if provided
+- name: Compose manifest_url from bundle_type if provided (legacy)
   when:
     - aip_cs_manifest_url | length == 0
     - bundle_type | default('') | length > 0
   set_fact:
     aip_cs_manifest_url: "gs://{{ aip_cs_bucket }}/content/{{ bundle_type }}/{{ bundle_id }}/manifest.yml"
 
-- name: Auto-discover manifest in bucket by bundle_id
+# 2.4. Legacy: auto-discover manifest in bucket by bundle_id
+- name: Auto-discover manifest in bucket by bundle_id (legacy fallback)
   when:
     - aip_cs_manifest_url | length == 0
   delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
@@ -100,7 +133,7 @@
   changed_when: false
   failed_when: aip_cs_manifest_ls.rc not in [0, 1]
 
-- name: Set manifest_url from auto-discovery result
+- name: Set manifest_url from auto-discovery result (legacy)
   when:
     - aip_cs_manifest_url | length == 0
     - aip_cs_manifest_ls.rc == 0
@@ -113,8 +146,11 @@
   fail:
     msg: >
       Could not determine manifest URL for bundle_id='{{ bundle_id }}'.
-      Checked bundle_type='{{ bundle_type | default('') }}' and
-      auto-discovery under gs://{{ aip_cs_bucket }}/content/**/{{ bundle_id }}/manifest.yml.
+      Checked:
+        - bundle_manifest_url='{{ bundle_manifest_url | default('') }}'
+        - bundle_root_url='{{ bundle_root_url | default('') }}'
+        - bundle_type='{{ bundle_type | default('') }}'
+        - legacy auto-discovery under gs://{{ aip_cs_bucket }}/content/**/{{ bundle_id }}/manifest.yml.
 
 - name: Ensure local working directory for manifest exists
   delegate_to: "{{ aip_cs_controller_host | default('localhost') }}"
@@ -286,7 +322,6 @@
 - name: Stop processing this host (gating)
   when: not gating_ok
   meta: end_host
-
 
 # ---------------------------------------------------------------------------
 # 4. Compute source paths and build overlay on controller
@@ -601,7 +636,12 @@
   set_fact:
     aip_cs_dest_root_template: "{{ aip_cs_dest.root | default('') }}"
 
-- name: Render dest_root from template
+# NEW BEHAVIOUR:
+# - If dest_root contains known tokens ({deployments_root}, {current}) we expand them.
+# - Otherwise we treat dest_root as a literal path.
+
+- name: Render dest_root from template tokens (if present)
+  when: "'{' in aip_cs_dest_root_template and '}' in aip_cs_dest_root_template"
   set_fact:
     aip_cs_dest_root: >-
       {{
@@ -609,6 +649,11 @@
         | replace('{deployments_root}', deployments_root)
         | replace('{current}', current)
       }}
+
+- name: Use dest_root as literal path (no tokens)
+  when: not ('{' in aip_cs_dest_root_template and '}' in aip_cs_dest_root_template)
+  set_fact:
+    aip_cs_dest_root: "{{ aip_cs_dest_root_template }}"
 
 - name: Fail if dest_root is empty
   when: aip_cs_dest_root | length == 0
@@ -657,6 +702,7 @@
     - name: Write/update managed index receipt
       copy:
         dest: "{{ aip_cs_managed_index_path }}"
+
         content: |
           {
             "bundle_id": "{{ bundle_id }}",
