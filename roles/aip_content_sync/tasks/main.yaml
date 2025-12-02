@@ -624,8 +624,6 @@
       - "--delete"
       - "--partial"
       - "--partial-dir=.rsync-partial"
-      - "--append-verify"
-      - "--compress"
 
 - name: Add bwlimit to rsync options if configured
   when: (aip_cs_rsync_bwlimit_kbps | int) > 0
