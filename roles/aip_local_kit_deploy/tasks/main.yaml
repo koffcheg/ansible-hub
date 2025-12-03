@@ -22,7 +22,7 @@
     msg: "Archive '{{ kit_archive_path }}' not found on Jetson."
   when: not kit_stat.stat.exists
 
-# 2) Derive deployment directory name (SPLIT into two tasks!)
+# 2) Derive deployment directory name
 - name: Derive kit basename
   ansible.builtin.set_fact:
     kit_basename: "{{ aip_kit_archive | regex_replace('\\.tar\\.zst$', '') }}"
@@ -56,7 +56,7 @@
     group: "{{ aip_deploy_user }}"
     mode: "0755"
 
-# 5) Extract archive
+# 5) Extract archive as checkout
 - name: Extract kit archive
   become: true
   become_user: "{{ aip_deploy_user }}"
@@ -67,10 +67,10 @@
   args:
     executable: /bin/bash
 
-# 6) Run installer
+# 6) Run installer AS ROOT (main.sh requires sudo)
 - name: Run jetson installer
-  become: true
-  become_user: "{{ aip_deploy_user }}"
+  become: true              # run as root
+  # no become_user here
   ansible.builtin.shell: >
     ./main.sh
     --auto
@@ -80,7 +80,7 @@
     chdir: "{{ deploy_dir }}/jetson_installer"
     executable: /bin/bash
 
-# 7) Update symlink
+# 7) Update symlink to this version (main.sh also does this, but this is idempotent)
 - name: Update 'current' symlink
   become: true
   ansible.builtin.file:
