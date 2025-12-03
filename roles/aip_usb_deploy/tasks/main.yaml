@@ -475,19 +475,32 @@
 
 # 7) Docker images + compose
 
-- name: Load Docker images from archive (if any *.tar)
+- name: Find Docker image tarballs under deploy_dir
+  become: true
+  ansible.builtin.find:
+    paths: "{{ deploy_dir }}"
+    patterns: "*.tar"
+    file_type: file
+  register: aip_docker_image_files
+
+- name: Debug found Docker image tarballs
+  ansible.builtin.debug:
+    var: aip_docker_image_files.files | map(attribute='path') | list
+  when: aip_docker_image_files.files | length > 0
+
+- name: Load Docker images from archive tarballs (if any)
+  when: aip_docker_image_files.files | length > 0
   become: true
   become_user: "{{ aip_deploy_user }}"
   args:
     executable: /bin/bash
   ansible.builtin.shell: |
     set -euo pipefail
-    shopt -s nullglob
-    for img in {{ deploy_dir }}/*.tar; do
+    for img in {{ aip_docker_image_files.files | map(attribute='path') | map('quote') | join(' ') }}; do
       echo "[AIP] Loading Docker image $img"
       docker load -i "$img"
     done
-  changed_when: false
+  changed_when: true
 
 - name: Bring up docker compose stack from new version
   become: true
