@@ -52,20 +52,21 @@
 
 # 0.1) Derive plaintext tar name and version/deploy_dir
 
-- name: Derive plaintext archive name and version id
+- name: Derive plaintext tar name and version id
   set_fact:
-    # Filename without .tar.zst
-    aip_plain_archive_name: "{{ aip_blob_name | regex_replace('\\.tar\\.zst$', '') }}"
+    # Plaintext tarball name:
+    # - for plain kits:  aip-ecopod-...-v1.0.1.tar.zst  (unchanged)
+    # - for secure kits: aip-ecopod-...-v1.0.1.tar.zst.gpg -> ...tar.zst
+    plaintext_tar_name: "{{ aip_blob_name | regex_replace('\\.gpg$', '') }}"
 
-    # Extract version number after the final 'v'
+    # Extract version (e.g. "1.0.1" from aip-ecopod-2025.11.27-v1.0.1.tar.zst or *.tar.zst.gpg)
     aip_version_id: >-
       {{ (aip_blob_name
-          | regex_search('v([0-9][0-9\\.]+)\\.tar\\.zst$')
+          | regex_search('v([0-9][0-9\\.]+)\\.tar\\.zst(\\.gpg)?$')
         ).1 }}
 
-- name: Derive deploy_dir under aip_deploy_root
-  set_fact:
-    deploy_dir: "{{ aip_deploy_root }}/{{ version_id }}"
+    # Final deploy dir, e.g. /home/checkout/deployments/1.0.1
+    deploy_dir: "{{ aip_deploy_root }}/{{ aip_version_id }}"
 
 # 0.2) Mock mode – create dummy cipher blob and mark as staged
 
