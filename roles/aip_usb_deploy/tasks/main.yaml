@@ -50,9 +50,9 @@
       Provide -e "aip_blob_name=..." OR set BLOB_NAME=... in /etc/aip/deploy.env.
   when: blob_name is not defined or blob_name | trim | length == 0
 
-# 0.1) Derive tar base name, version, deploy_dir and plaintext tar name
+# 0.1) Derive tar base name, version and plaintext tar name
 
-- name: Derive tar base name, version, deploy_dir and plaintext_tar_name
+- name: Derive tar base name, version and plaintext_tar_name
   ansible.builtin.set_fact:
     # Strip .tar.{zst,gz,bz2,xz}[.gpg] to get the kit base name
     # Examples:
@@ -84,6 +84,8 @@
     plaintext_tar_name: >-
       {{ blob_name | regex_replace('\.gpg$', '') }}
 
+- name: Derive deploy_dir from kit base name
+  ansible.builtin.set_fact:
     # Where this kit will live on the Jetson once extracted.
     # Example:
     #   /home/checkout/deployments/aip-ecopod-2025.11.27-v1.0.1
