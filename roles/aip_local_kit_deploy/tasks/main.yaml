@@ -1,11 +1,18 @@
 ---
-# 0) Validate archive param
+# 0) Validate required params
 - name: Fail if kit archive not provided
   ansible.builtin.fail:
     msg: |
       You must pass:
         -e "aip_kit_archive=<file>.tar.zst"
-  when: aip_kit_archive is not defined or aip_kit_archive | length == 0
+  when: aip_kit_archive is not defined or (aip_kit_archive | string | length) == 0
+
+- name: Fail if store_id not provided
+  ansible.builtin.fail:
+    msg: |
+      You must pass:
+        -e "aip_store_id=<STORE_ID>"
+  when: aip_store_id is not defined or (aip_store_id | string | length) == 0
 
 # 1) Compute archive path
 - name: Compute full archive path
@@ -25,7 +32,7 @@
 # 2) Derive deployment directory name
 - name: Derive kit basename
   ansible.builtin.set_fact:
-    kit_basename: "{{ aip_kit_archive | regex_replace('\\.tar\\.zst$', '') }}"
+    kit_basename: "{{ aip_kit_archive | regex_replace('\\.tar\\.[^.]+$', '') }}"
 
 - name: Derive deployment directory
   ansible.builtin.set_fact:
@@ -67,9 +74,9 @@
   args:
     executable: /bin/bash
 
-# 6) Run installer AS ROOT with JSON/YAML-style status output
+# 6) Run installer AS ROOT with JSON output
 - name: Run jetson installer (JSON mode)
-  become: true              # run as root; main.sh requires sudo/root
+  become: true              # main.sh must run as root
   ansible.builtin.shell: >
     ./main.sh
     --auto
@@ -81,43 +88,39 @@
     executable: /bin/bash
   register: installer_run
   changed_when: true
-  failed_when: false        # we will interpret rc + status ourselves
+  failed_when: false        # interpret rc + JSON ourselves
 
-# 7) Parse status result from installer output (if present)
-- name: Extract JSON/YAML line from installer stdout
-  ansible.builtin.set_fact:
-    installer_json_line: >-
-      {{
-        installer_run.stdout_lines
-        | select('match', '^{')
-        | list
-        | last
-        | default('')
-      }}
+# 7) Parse JSON result from installer output (if present)
 
-- name: Parse installer status (YAML parser, JSON-compatible)
-  when: installer_json_line != ''
+# Grab the first {...} block from stdout as a whole, not line-by-line.
+- name: Extract JSON block from installer stdout
   ansible.builtin.set_fact:
-    installer_result: "{{ installer_json_line | from_yaml }}"
+    installer_json_block: >-
+      {{ installer_run.stdout | regex_search('(?s){.*}') | default('') }}
+
+- name: Parse installer JSON (via from_yaml, JSON is a subset of YAML)
+  when: installer_json_block != ''
+  ansible.builtin.set_fact:
+    installer_result: "{{ installer_json_block | from_yaml }}"
 
 - name: Debug parsed installer_result
   ansible.builtin.debug:
     var: installer_result
   when: installer_result is defined
 
-# 8) Guardrail: non-zero rc with no status is a hard failure
-- name: Fail if installer exited non-zero and no status could be parsed
+# 8) Guardrail: non-zero rc with no JSON is a hard failure
+- name: Fail if installer exited non-zero and no JSON status could be parsed
   ansible.builtin.fail:
     msg: >
-      EcoBoutique installer exited with code {{ installer_run.rc }} and no machine-readable
+      EcoBoutique installer exited with code {{ installer_run.rc }} and no JSON
       status could be parsed.
       stdout: {{ installer_run.stdout }}
       stderr: {{ installer_run.stderr }}
   when:
-    - installer_result is not defined
     - installer_run.rc != 0
+    - installer_result is not defined
 
-# 9) Hard-fail only for pre/core steps; treat pure postinstall failures as soft
+# 9) Hard-fail only for core steps; treat pure postinstall failures as soft
 #    We consider failed_step < 11 as "hard" (preflight / core install).
 - name: Fail play if installer encountered a hard error
   ansible.builtin.fail:
@@ -155,5 +158,5 @@
       deploy_dir={{ deploy_dir }}
       host={{ inventory_hostname }}
       installer_rc={{ installer_run.rc }}
-      installer_status={{ installer_result.status | default('unknown') if installer_result is defined else 'no-status' }}
+      installer_status={{ installer_result.status | default('unknown') if installer_result is defined else 'no-json' }}
       installer_failed_step={{ installer_result.failed_step | default('n/a') if installer_result is defined else 'n/a' }}
