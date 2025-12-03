@@ -1,6 +1,6 @@
 ---
 - name: AIP USB / eject_kits deployment via jetson_installer
-  hosts: jetson_devices
+  hosts: clients
   become: true
 
   # vars:
