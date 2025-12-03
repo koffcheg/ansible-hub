@@ -3,6 +3,5 @@ aip_deploy_user: checkout
 aip_eject_kits_root: "/home/{{ aip_deploy_user }}/eject_kits"
 aip_deploy_root: "/home/{{ aip_deploy_user }}/deployments"
 
-# required via -e
 aip_kit_archive: ""
 aip_store_id: ""
