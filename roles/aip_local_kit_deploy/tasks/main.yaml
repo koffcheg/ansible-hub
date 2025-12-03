@@ -67,7 +67,7 @@
   args:
     executable: /bin/bash
 
-# 6) Run installer AS ROOT with JSON output
+# 6) Run installer AS ROOT with JSON/YAML-style status output
 - name: Run jetson installer (JSON mode)
   become: true              # run as root; main.sh requires sudo/root
   ansible.builtin.shell: >
@@ -81,10 +81,10 @@
     executable: /bin/bash
   register: installer_run
   changed_when: true
-  failed_when: false        # we will interpret rc + JSON ourselves
+  failed_when: false        # we will interpret rc + status ourselves
 
-# 7) Parse JSON result from installer output (if present)
-- name: Extract JSON line from installer stdout
+# 7) Parse status result from installer output (if present)
+- name: Extract JSON/YAML line from installer stdout
   ansible.builtin.set_fact:
     installer_json_line: >-
       {{
@@ -95,21 +95,21 @@
         | default('')
       }}
 
-- name: Parse installer JSON
+- name: Parse installer status (YAML parser, JSON-compatible)
   when: installer_json_line != ''
   ansible.builtin.set_fact:
-    installer_result: "{{ installer_json_line | from_json }}"
+    installer_result: "{{ installer_json_line | from_yaml }}"
 
 - name: Debug parsed installer_result
   ansible.builtin.debug:
     var: installer_result
   when: installer_result is defined
 
-# 8) Guardrail: non-zero rc with no JSON is a hard failure
-- name: Fail if installer exited non-zero and no JSON status could be parsed
+# 8) Guardrail: non-zero rc with no status is a hard failure
+- name: Fail if installer exited non-zero and no status could be parsed
   ansible.builtin.fail:
     msg: >
-      EcoBoutique installer exited with code {{ installer_run.rc }} and no JSON
+      EcoBoutique installer exited with code {{ installer_run.rc }} and no machine-readable
       status could be parsed.
       stdout: {{ installer_run.stdout }}
       stderr: {{ installer_run.stderr }}
@@ -117,7 +117,7 @@
     - installer_result is not defined
     - installer_run.rc != 0
 
-# 9) Hard-fail only for pre/post-core steps; treat pure postinstall failures as soft
+# 9) Hard-fail only for pre/core steps; treat pure postinstall failures as soft
 #    We consider failed_step < 11 as "hard" (preflight / core install).
 - name: Fail play if installer encountered a hard error
   ansible.builtin.fail:
@@ -155,5 +155,5 @@
       deploy_dir={{ deploy_dir }}
       host={{ inventory_hostname }}
       installer_rc={{ installer_run.rc }}
-      installer_status={{ installer_result.status | default('unknown') if installer_result is defined else 'no-json' }}
+      installer_status={{ installer_result.status | default('unknown') if installer_result is defined else 'no-status' }}
       installer_failed_step={{ installer_result.failed_step | default('n/a') if installer_result is defined else 'n/a' }}

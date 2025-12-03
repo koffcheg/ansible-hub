@@ -1,3 +1,4 @@
+# playbooks/deploy_aip.yaml
 ---
 - name: Deploy AIP kit via eject_kits
   hosts: clients
