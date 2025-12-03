@@ -53,20 +53,25 @@
 # 0.1) Derive plaintext tar name and version/deploy_dir
 
 - name: Derive plaintext tar name and version id
-  set_fact:
-    # Plaintext tarball name:
-    # - for plain kits:  aip-ecopod-...-v1.0.1.tar.zst  (unchanged)
-    # - for secure kits: aip-ecopod-...-v1.0.1.tar.zst.gpg -> ...tar.zst
-    plaintext_tar_name: "{{ aip_blob_name | regex_replace('\\.gpg$', '') }}"
+  ansible.builtin.set_fact:
+    # Strip compression extension to get a "plaintext" tar name
+    # Example:
+    #   aip-ecopod-2025.11.27-v1.0.1.tar.zst
+    # -> aip-ecopod-2025.11.27-v1.0.1
+    aip_tar_plaintext_name: >-
+      {{ blob_name | regex_replace('\.tar\.(zst|gz|bz2|xz)$', '') }}
 
-    # Extract version (e.g. "1.0.1" from aip-ecopod-2025.11.27-v1.0.1.tar.zst or *.tar.zst.gpg)
+    # Extract version as the part after "-v"
+    # Example:
+    #   aip-ecopod-2025.11.27-v1.0.1.tar.zst
+    # -> "1.0.1"
+    # If "-v" is missing for any reason, fallback is the full
+    # plaintext tar name.
     aip_version_id: >-
-      {{ (aip_blob_name
-          | regex_search('v([0-9][0-9\\.]+)\\.tar\\.zst(\\.gpg)?$')
-        ).1 }}
-
-    # Final deploy dir, e.g. /home/checkout/deployments/1.0.1
-    deploy_dir: "{{ aip_deploy_root }}/{{ aip_version_id }}"
+      {{
+        (blob_name | regex_replace('\.tar\.(zst|gz|bz2|xz)$', ''))
+        .split('-v') | last
+      }}
 
 # 0.2) Mock mode – create dummy cipher blob and mark as staged
 
