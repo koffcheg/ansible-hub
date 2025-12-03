@@ -54,13 +54,16 @@
 
 - name: Derive plaintext archive name and version id
   set_fact:
-    plaintext_tar_name: "{{ blob_name | regex_replace('\\.gpg$', '') }}"
-    aip_version: >-
-      {{ (blob_name | regex_search('v[0-9]+\\.[0-9]+\\.[0-9]+')) | default(blob_name | regex_replace('\\.gpg$', '')) }}
+    plaintext_tar_name: "{{ blob_name }}"
+    version_id: >-
+      {{ blob_name
+         | regex_replace('^aip-[^-]+-[0-9.]+-', '')       # drop 'aip-ecopod-2025.11.27-'
+         | regex_replace('\\.tar\\.zst$', '')             # drop '.tar.zst'
+      }}
 
 - name: Derive deploy_dir under aip_deploy_root
   set_fact:
-    deploy_dir: "{{ aip_deploy_root }}/{{ aip_version }}"
+    deploy_dir: "{{ aip_deploy_root }}/{{ version_id }}"
 
 # 0.2) Mock mode – create dummy cipher blob and mark as staged
 
@@ -461,7 +464,7 @@
     chdir: "{{ deploy_dir }}/{{ aip_compose_workdir_relpath }}"
     executable: /bin/bash
   shell: |
-    set -euo pipefail
+    set -e
     docker compose -f "{{ aip_compose_file_relpath }}" up -d --remove-orphans
 
 # 8) Update symlink & receipt
