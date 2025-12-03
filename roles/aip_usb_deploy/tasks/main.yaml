@@ -392,22 +392,23 @@
     - aip_decrypt_mode != 'none'
   args:
     chdir: "{{ aip_deploy_root }}"
+    executable: /bin/bash
   shell: |
     set -euo pipefail
     tar -I zstd -xf "{{ aip_state_stage_dir }}/{{ plaintext_tar_name }}"
 
-# PLAIN LOCAL KIT: extract directly from cipher_src_path (no GPG/GCS)
-
-- name: Extract local plain kit tar.zst into deploy_root (no GPG/GCS)
+- name: Extract local plain kit tar.zst into deploy_root
   become: true
   when:
     - not (aip_usb_mock_mode | default(false) | bool)
     - aip_decrypt_mode == 'none'
   args:
     chdir: "{{ aip_deploy_root }}"
+    executable: /bin/bash
   shell: |
     set -euo pipefail
     tar -I zstd -xf "{{ cipher_src_path }}"
+
 
 # 6) Mock mode – create dummy deployment tree
 
