@@ -22,13 +22,23 @@
     msg: "Archive '{{ kit_archive_path }}' not found on Jetson."
   when: not kit_stat.stat.exists
 
-# 2) Derive deployment directory name
-- name: Derive deployment directory name
+# 2) Derive deployment directory name (SPLIT into two tasks!)
+- name: Derive kit basename
   ansible.builtin.set_fact:
     kit_basename: "{{ aip_kit_archive | regex_replace('\\.tar\\.zst$', '') }}"
+
+- name: Derive deployment directory
+  ansible.builtin.set_fact:
     deploy_dir: "{{ aip_deploy_root }}/{{ kit_basename }}"
 
-# 3) Ensure deploy root
+- name: Debug derived paths
+  ansible.builtin.debug:
+    msg:
+      - "kit_archive_path = {{ kit_archive_path }}"
+      - "kit_basename    = {{ kit_basename }}"
+      - "deploy_dir      = {{ deploy_dir }}"
+
+# 3) Ensure deploy root exists
 - name: Ensure deployments root exists
   ansible.builtin.file:
     path: "{{ aip_deploy_root }}"
@@ -48,6 +58,7 @@
 
 # 5) Extract archive
 - name: Extract kit archive
+  become: true
   become_user: "{{ aip_deploy_user }}"
   ansible.builtin.shell: >
     tar -I zstd -xf "{{ kit_archive_path }}"
@@ -58,15 +69,20 @@
 
 # 6) Run installer
 - name: Run jetson installer
+  become: true
   become_user: "{{ aip_deploy_user }}"
   ansible.builtin.shell: >
-    ./main.sh --auto --store-id {{ aip_store_id }} "{{ deploy_dir }}"
+    ./main.sh
+    --auto
+    --store-id {{ aip_store_id }}
+    "{{ deploy_dir }}"
   args:
     chdir: "{{ deploy_dir }}/jetson_installer"
     executable: /bin/bash
 
 # 7) Update symlink
 - name: Update 'current' symlink
+  become: true
   ansible.builtin.file:
     src: "{{ deploy_dir }}"
     dest: "{{ aip_deploy_root }}/current"
@@ -75,6 +91,7 @@
 
 # 8) Write receipt
 - name: Write deploy receipt
+  become: true
   ansible.builtin.copy:
     dest: "{{ deploy_dir }}/deploy.receipt"
     owner: "{{ aip_deploy_user }}"
