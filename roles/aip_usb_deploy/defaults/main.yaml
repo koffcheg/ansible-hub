@@ -1,39 +1,63 @@
 ---
 # Where deployments live on the Jetson
+aip_deploy_root: /home/checkout/deployments
 aip_deploy_user: checkout
-aip_deploy_root: "/home/{{ aip_deploy_user }}/deployments"
 
-# Where eject kits live on the Jetson
-# Contains files like:
-#   aip-ecopod-2025.11.27-v1.0.1.tar.zst
-#   aip-ecopod-2025.11.27-v1.0.1.tar.zst.sha256
-aip_eject_kits_dir: "/home/{{ aip_deploy_user }}/eject_kits"
-
-# Exact archive file name (NO path), e.g.:
-#   aip-ecopod-2025.11.27-v1.0.1.tar.zst
-# Recommended: pass via -e or host_vars as aip_blob_name.
-# Fallback: try to read from /etc/aip/deploy.env (BLOB_NAME=... line).
+# Blob name (archive file name, e.g. aip-ecopod-2025.11.27-v1.0.1.tar.zst or .tar.zst.gpg)
+# Prefer setting this via -e "aip_blob_name=..." or in host/group vars.
+# If left empty, the role will try to read it from /etc/aip/deploy.env on the Jetson.
 aip_blob_name: ""
 
-# Optional: explicit kit version (folder name under {{ aip_deploy_root }})
-# If empty, version is parsed from aip_blob_name as the last dash-separated token:
-#   "aip-ecopod-2025.11.27-v1.0.1.tar.zst" -> "v1.0.1"
-aip_kit_version: ""
+# -------------------------------
+# LOCAL KIT MODE (what you use now)
+# -------------------------------
 
-# Store / NATS settings passed to jetson_installer/main.sh
-# aip_store_id is REQUIRED – fail fast when missing.
-aip_store_id: ""
-aip_nats_url: "nats://34.94.63.145:4222"
+# Enable local plain-kit deployment (no GCS / GPG; tar.zst already on the Jetson).
+aip_local_kit_enabled: true
 
-# AIP state (used for checksums + receipts)
+# Directory on the Jetson where eject kits live (your current layout)
+  # Example on client51:
+  #   /home/checkout/eject_kits/aip-ecopod-2025.11.27-v1.0.1.tar.zst
+aip_local_kit_dir: "/home/{{ aip_deploy_user }}/eject_kits"
+
+# -------------------------------
+# SECURE MODE (GCS + GPG + minisign)
+# Keep it available for later; disabled for now.
+# -------------------------------
+
+# GCP project + bucket holding .sha256 and .sha256.minisig
+aip_gcp_project: "deployment-setup-lab-01"
+# bare bucket name; full URI is built as gs://{{ aip_usb_bucket }}
+aip_usb_bucket: "content-deployment-lab-01"
+
+# Controller-side temp dir for AIP artifacts
+aip_controller_tmp_root: /tmp/aip
+
+# Minisign public key on controller
+aip_minisign_pubkey_path_controller: /etc/aip/minisign.pub
+
+# Secret Manager names for GPG material
+aip_gpg_private_key_secret: "aip/deploy/gpg/private_key"
+aip_gpg_private_key_pass_secret: "aip/deploy/gpg/private_key_pass"
+aip_gpg_symmetric_pass_secret: "aip/deploy/gpg/symmetric_pass"
+
+# Decrypt mode: "symmetric", "asymmetric", or "none"
+# - "none"  = your current plain .tar.zst kit, no GPG, no GCS.
+# - "symmetric"/"asymmetric" = secure GCS+GPG path.
+aip_decrypt_mode: "none"
+
+# Jetson AIP state dirs (already created by jetson_aip_prereqs)
 aip_state_root: /opt/aip/state
 aip_state_stage_dir: "{{ aip_state_root }}/stage"
 aip_state_receipts_dir: "{{ aip_state_root }}/receipts"
+aip_state_backups_dir: "{{ aip_state_root }}/backups"
 
-# Installer behaviour
-aip_installer_retries: 3
-aip_installer_delay_seconds: 30
+# Docker compose deployment (we still bring the stack up from the extracted kit)
+aip_compose_enabled: true
+# Path to docker-compose file relative to the extracted *version* dir (v1.0.1/)
+aip_compose_file_relpath: docker-compose.yml
+# Working directory relative to the extracted version dir (usually ".")
+aip_compose_workdir_relpath: "."
 
-# If true, STOP after extracting the kit – do NOT run jetson_installer.
-# Useful for initial smoke tests.
-aip_installer_dry_run: false
+# Mock mode (for early testing without real kit)
+aip_usb_mock_mode: false
