@@ -67,20 +67,72 @@
   args:
     executable: /bin/bash
 
-# 6) Run installer AS ROOT (main.sh requires sudo)
-- name: Run jetson installer
-  become: true              # run as root
-  # no become_user here
+# 6) Run installer AS ROOT with JSON output
+- name: Run jetson installer (JSON mode)
+  become: true              # run as root; main.sh requires sudo/root
   ansible.builtin.shell: >
     ./main.sh
     --auto
     --store-id {{ aip_store_id }}
+    --json
     "{{ deploy_dir }}"
   args:
     chdir: "{{ deploy_dir }}/jetson_installer"
     executable: /bin/bash
+  register: installer_run
+  changed_when: true
+  failed_when: false        # we will interpret rc + JSON ourselves
 
-# 7) Update symlink to this version (main.sh also does this, but this is idempotent)
+# 7) Parse JSON result from installer output (if present)
+- name: Extract JSON line from installer stdout
+  ansible.builtin.set_fact:
+    installer_json_line: >-
+      {{
+        installer_run.stdout_lines
+        | select('match', '^{')
+        | list
+        | last
+        | default('')
+      }}
+
+- name: Parse installer JSON
+  when: installer_json_line != ''
+  ansible.builtin.set_fact:
+    installer_result: "{{ installer_json_line | from_json }}"
+
+- name: Debug parsed installer_result
+  ansible.builtin.debug:
+    var: installer_result
+  when: installer_result is defined
+
+# 8) Guardrail: non-zero rc with no JSON is a hard failure
+- name: Fail if installer exited non-zero and no JSON status could be parsed
+  ansible.builtin.fail:
+    msg: >
+      EcoBoutique installer exited with code {{ installer_run.rc }} and no JSON
+      status could be parsed.
+      stdout: {{ installer_run.stdout }}
+      stderr: {{ installer_run.stderr }}
+  when:
+    - installer_result is not defined
+    - installer_run.rc != 0
+
+# 9) Hard-fail only for pre/post-core steps; treat pure postinstall failures as soft
+#    We consider failed_step < 11 as "hard" (preflight / core install).
+- name: Fail play if installer encountered a hard error
+  ansible.builtin.fail:
+    msg: >
+      EcoBoutique installer reported failure at step {{ installer_result.failed_step | default('unknown') }}:
+      {{ installer_result.message | default('no message') }}
+  when: >
+    installer_result is defined and
+    (installer_result.status | default('')) == 'failed' and
+    (
+      installer_result.failed_step is not defined or
+      (installer_result.failed_step | int) < 11
+    )
+
+# 10) Update symlink to this version (installer also does this, but idempotent here)
 - name: Update 'current' symlink
   become: true
   ansible.builtin.file:
@@ -89,7 +141,7 @@
     state: link
     force: true
 
-# 8) Write receipt
+# 11) Write receipt
 - name: Write deploy receipt
   become: true
   ansible.builtin.copy:
@@ -102,3 +154,6 @@
       archive={{ kit_archive_path }}
       deploy_dir={{ deploy_dir }}
       host={{ inventory_hostname }}
+      installer_rc={{ installer_run.rc }}
+      installer_status={{ installer_result.status | default('unknown') if installer_result is defined else 'no-json' }}
+      installer_failed_step={{ installer_result.failed_step | default('n/a') if installer_result is defined else 'n/a' }}
