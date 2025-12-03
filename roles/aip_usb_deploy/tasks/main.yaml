@@ -50,37 +50,45 @@
       Provide -e "aip_blob_name=..." OR set BLOB_NAME=... in /etc/aip/deploy.env.
   when: blob_name is not defined or blob_name | trim | length == 0
 
-# 0.1) Derive tar names, version id, and deploy_dir
+# 0.1) Derive tar base name, version, deploy_dir and plaintext tar name
 
-- name: Derive tar names, version id, and deploy_dir
+- name: Derive tar base name, version, deploy_dir and plaintext_tar_name
   ansible.builtin.set_fact:
-    # Pure base name without compression and optional .gpg
+    # Strip .tar.{zst,gz,bz2,xz}[.gpg] to get the kit base name
     # Examples:
     #   aip-ecopod-2025.11.27-v1.0.1.tar.zst
     #   aip-ecopod-2025.11.27-v1.0.1.tar.zst.gpg
     # -> aip-ecopod-2025.11.27-v1.0.1
-    aip_tar_basename: >-
-      {{ blob_name | regex_replace('\.tar\.(zst|gz|bz2|xz)(\.gpg)?$', '') }}
+    aip_tar_plaintext_name: >-
+      {{ blob_name
+         | regex_replace('\.tar\.(zst|gz|bz2|xz)(\.gpg)?$', '') }}
 
-    # Name of the plaintext compressed tarball (without .gpg)
+    # Extract version as the part after "-v"
+    # Example base:
+    #   aip-ecopod-2025.11.27-v1.0.1
+    # -> "1.0.1"
+    # If "-v" is missing, fallback is the full base name.
+    aip_version_id: >-
+      {{
+        (blob_name
+         | regex_replace('\.tar\.(zst|gz|bz2|xz)(\.gpg)?$', ''))
+         .split('-v') | last
+      }}
+
+    # Name of the *plaintext* archive we will untar:
+    # - for plain kits:   blob_name (no change)
+    # - for .gpg kits:    blob_name with .gpg stripped
     # Examples:
-    #   blob_name=aip-...-v1.0.1.tar.zst      -> plaintext_tar_name=aip-...-v1.0.1.tar.zst
-    #   blob_name=aip-...-v1.0.1.tar.zst.gpg  -> plaintext_tar_name=aip-...-v1.0.1.tar.zst
+    #   blob_name = aip-...tar.zst       -> plaintext_tar_name = aip-...tar.zst
+    #   blob_name = aip-...tar.zst.gpg   -> plaintext_tar_name = aip-...tar.zst
     plaintext_tar_name: >-
       {{ blob_name | regex_replace('\.gpg$', '') }}
 
-    # Extract version as the part after "-v"
-    # Example blob_name:
-    #   aip-ecopod-2025.11.27-v1.0.1.tar.zst  -> "1.0.1"
-    #   aip-ecopod-2025.11.27-v2.tar.zst.gpg  -> "2"
-    aip_version_id: >-
-      {{
-        (blob_name | regex_replace('\.tar\.(zst|gz|bz2|xz)(\.gpg)?$', ''))
-        .split('-v') | last
-      }}
-
-    # Version-specific deploy dir on Jetson
-    deploy_dir: "{{ aip_deploy_root }}/v{{ aip_version_id }}"
+    # Where this kit will live on the Jetson once extracted.
+    # Example:
+    #   /home/checkout/deployments/aip-ecopod-2025.11.27-v1.0.1
+    deploy_dir: >-
+      {{ aip_deploy_root }}/{{ aip_tar_plaintext_name }}
 
 - name: Fail if deploy_dir could not be derived
   ansible.builtin.fail:
