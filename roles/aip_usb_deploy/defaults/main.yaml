@@ -1,44 +1,39 @@
 ---
 # Where deployments live on the Jetson
-aip_deploy_root: /home/checkout/deployments
 aip_deploy_user: checkout
+aip_deploy_root: "/home/{{ aip_deploy_user }}/deployments"
 
-# Blob name (ciphertext file name, e.g. aip-ecopod-2025.10.15-v1.0.0.tar.zst.gpg)
-# Prefer setting this in host_vars/group_vars as `aip_blob_name`.
-# If left empty, the role will try to read it from /etc/aip/deploy.env on the Jetson.
+# Where eject kits live on the Jetson
+# Contains files like:
+#   aip-ecopod-2025.11.27-v1.0.1.tar.zst
+#   aip-ecopod-2025.11.27-v1.0.1.tar.zst.sha256
+aip_eject_kits_dir: "/home/{{ aip_deploy_user }}/eject_kits"
+
+# Exact archive file name (NO path), e.g.:
+#   aip-ecopod-2025.11.27-v1.0.1.tar.zst
+# Recommended: pass via -e or host_vars as aip_blob_name.
+# Fallback: try to read from /etc/aip/deploy.env (BLOB_NAME=... line).
 aip_blob_name: ""
 
-# GCP project + bucket holding .sha256 and .sha256.minisig
-aip_gcp_project: "deployment-setup-lab-01"
-# bare bucket name; full URI is built as gs://{{ aip_usb_bucket }}
-aip_usb_bucket: "content-deployment-lab-01"
+# Optional: explicit kit version (folder name under {{ aip_deploy_root }})
+# If empty, version is parsed from aip_blob_name as the last dash-separated token:
+#   "aip-ecopod-2025.11.27-v1.0.1.tar.zst" -> "v1.0.1"
+aip_kit_version: ""
 
-# Controller-side temp dir for AIP artifacts
-aip_controller_tmp_root: /tmp/aip
+# Store / NATS settings passed to jetson_installer/main.sh
+# aip_store_id is REQUIRED – fail fast when missing.
+aip_store_id: ""
+aip_nats_url: "nats://34.94.63.145:4222"
 
-# Minisign public key on controller
-aip_minisign_pubkey_path_controller: /etc/aip/minisign.pub
-
-# Secret Manager names for GPG material
-aip_gpg_private_key_secret: "aip/deploy/gpg/private_key"
-aip_gpg_private_key_pass_secret: "aip/deploy/gpg/private_key_pass"
-aip_gpg_symmetric_pass_secret: "aip/deploy/gpg/symmetric_pass"
-
-# Decrypt mode: "symmetric" (use symmetric_pass) or "asymmetric" (import private_key + pass)
-aip_decrypt_mode: "symmetric"
-
-# Jetson AIP state dirs (already created by jetson_aip_prereqs)
+# AIP state (used for checksums + receipts)
 aip_state_root: /opt/aip/state
 aip_state_stage_dir: "{{ aip_state_root }}/stage"
 aip_state_receipts_dir: "{{ aip_state_root }}/receipts"
-aip_state_backups_dir: "{{ aip_state_root }}/backups"
 
-# Docker compose deployment
-aip_compose_enabled: true
-# Path to docker-compose file relative to extracted version dir
-aip_compose_file_relpath: docker-compose.yml
-# Working directory relative to extracted version dir (usually ".")
-aip_compose_workdir_relpath: "."
+# Installer behaviour
+aip_installer_retries: 3
+aip_installer_delay_seconds: 30
 
-# Mock mode (for early testing without real USB/GCS/GPG)
-aip_usb_mock_mode: false
+# If true, STOP after extracting the kit – do NOT run jetson_installer.
+# Useful for initial smoke tests.
+aip_installer_dry_run: false
