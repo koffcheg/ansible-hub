@@ -1,23 +1,10 @@
 ---
-- name: AIP USB / eject_kits deployment via jetson_installer
+- name: Deploy AIP kit via eject_kits
   hosts: clients
   become: true
 
-  # vars:
-    # REQUIRED per run (can also go into host_vars/group_vars)
-    # Example for your current kit:
-    #   aip_blob_name: "aip-ecopod-2025.11.27-v1.0.1.tar.zst"
-    #   aip_store_id: "115"
-    #
-    # If aip_kit_version is omitted, it will be derived as:
-    #   last dash-separated token of aip_blob_name, e.g. "v1.0.1"
-    #
-    # aip_blob_name: ""
-    # aip_store_id: ""
-    #
-    # Optional overrides:
-    # aip_nats_url: "nats://34.94.63.145:4222"
-    # aip_installer_dry_run: false
+  vars:
+    aip_kit_dir: "{{ aip_kit_dir | default('') }}"
 
   roles:
-    - aip_usb_deploy
+    - aip_local_kit_deploy
