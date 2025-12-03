@@ -54,12 +54,14 @@
 
 - name: Derive plaintext archive name and version id
   set_fact:
-    plaintext_tar_name: "{{ blob_name }}"
-    version_id: >-
-      {{ blob_name
-         | regex_replace('^aip-[^-]+-[0-9.]+-', '')
-         | regex_replace('\\.tar\\.zst$', '')
-      }}
+    # Filename without .tar.zst
+    aip_plain_archive_name: "{{ aip_blob_name | regex_replace('\\.tar\\.zst$', '') }}"
+
+    # Extract version number after the final 'v'
+    aip_version_id: >-
+      {{ (aip_blob_name
+          | regex_search('v([0-9][0-9\\.]+)\\.tar\\.zst$')
+        ).1 }}
 
 - name: Derive deploy_dir under aip_deploy_root
   set_fact:
