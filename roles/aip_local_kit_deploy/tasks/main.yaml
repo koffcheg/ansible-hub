@@ -1,51 +1,34 @@
 ---
-- name: Validate kit_dir
+# 0) Validate input
+- name: Fail if kit archive not provided
   ansible.builtin.fail:
-    msg: "You must pass -e 'aip_kit_dir=<folder>' pointing to /home/checkout/eject_kits/<folder>"
-  when: aip_kit_dir == ""
+    msg: |
+      You must pass kit archive name via:
+      -e "aip_kit_archive=<filename>.tar.zst"
+  when: aip_kit_archive is not defined or aip_kit_archive | length == 0
 
-- name: Resolve full kit directory
+# 1) Resolve archive full path
+- name: Resolve full archive path
   ansible.builtin.set_fact:
-    kit_path: "{{ aip_eject_kits_root }}/{{ aip_kit_dir }}"
+    kit_archive_path: "{{ aip_eject_kits_root }}/{{ aip_kit_archive }}"
 
-- name: Ensure kit directory exists
+- name: Check kit archive path exists
   ansible.builtin.stat:
-    path: "{{ kit_path }}"
+    path: "{{ kit_archive_path }}"
   register: kit_stat
 
-- name: Fail if kit directory missing
+- name: Fail if kit archive does not exist
   ansible.builtin.fail:
-    msg: "Kit directory '{{ kit_path }}' not found."
+    msg: "Kit archive '{{ kit_archive_path }}' not found on Jetson."
   when: not kit_stat.stat.exists
 
-# ---------------------------------------------------
-# FIND THE .tar.zst ARCHIVE
-# ---------------------------------------------------
-- name: Find the kit archive
-  ansible.builtin.find:
-    paths: "{{ kit_path }}"
-    patterns: "*.tar.zst"
-    file_type: file
-  register: kit_archives
-
-- name: Fail if no archive found
-  ansible.builtin.fail:
-    msg: "No .tar.zst archive found in {{ kit_path }}"
-  when: kit_archives.files | length == 0
-
-- name: Select archive
+# 2) Derive deployment directory
+- name: Derive deployment directory
   ansible.builtin.set_fact:
-    kit_archive: "{{ kit_archives.files[0].path }}"
-
-# Derive deployment version & deploy_dir
-- name: Derive versioned deploy directory
-  ansible.builtin.set_fact:
-    kit_basename: "{{ kit_archive | basename | regex_replace('\\.tar\\.zst$', '') }}"
+    kit_basename: "{{ aip_kit_archive | regex_replace('\\.tar\\.zst$', '') }}"
     deploy_dir: "{{ aip_deploy_root }}/{{ kit_basename }}"
 
-# ---------------------------------------------------
-# EXTRACT KIT
-# ---------------------------------------------------
+# 3) Ensure deploy root
 - name: Ensure deploy root exists
   ansible.builtin.file:
     path: "{{ aip_deploy_root }}"
@@ -54,7 +37,8 @@
     group: "{{ aip_deploy_user }}"
     mode: "0755"
 
-- name: Create deploy_dir
+# 4) Create deploy_dir for this version
+- name: Create version directory
   ansible.builtin.file:
     path: "{{ deploy_dir }}"
     state: directory
@@ -62,27 +46,24 @@
     group: "{{ aip_deploy_user }}"
     mode: "0755"
 
-- name: Extract kit archive
+# 5) Extract archive
+- name: Extract kit archive into deploy_dir
   become_user: "{{ aip_deploy_user }}"
   ansible.builtin.shell: >
-    tar -I zstd -xf "{{ kit_archive }}" -C "{{ deploy_dir }}" --strip-components=1
+    tar -I zstd -xf "{{ kit_archive_path }}" -C "{{ deploy_dir }}" --strip-components=1
   args:
     executable: /bin/bash
 
-# ---------------------------------------------------
-# RUN INSTALLER
-# ---------------------------------------------------
+# 6) Run installer
 - name: Run installer main.sh
   become_user: "{{ aip_deploy_user }}"
   ansible.builtin.shell: >
-    ./main.sh --auto "{{ deploy_dir }}"
+    ./main.sh --auto --store-id {{ aip_store_id | default('jetson_store_001') }} "{{ deploy_dir }}"
   args:
     chdir: "{{ deploy_dir }}/jetson_installer"
     executable: /bin/bash
 
-# ---------------------------------------------------
-# UPDATE SYMLINK
-# ---------------------------------------------------
+# 7) Update symlink
 - name: Point 'current' symlink to new version
   ansible.builtin.file:
     src: "{{ deploy_dir }}"
@@ -90,17 +71,15 @@
     state: link
     force: true
 
-# ---------------------------------------------------
-# RECEIPT
-# ---------------------------------------------------
-- name: Write receipt
+# 8) Write deploy receipt
+- name: Write deploy receipt
   ansible.builtin.copy:
-    dest: "{{ aip_deploy_root }}/current/deploy.receipt"
+    dest: "{{ deploy_dir }}/deploy.receipt"
     owner: "{{ aip_deploy_user }}"
     group: "{{ aip_deploy_user }}"
     mode: "0644"
     content: |
+      archive={{ kit_archive_path }}
       deploy_dir={{ deploy_dir }}
-      archive={{ kit_archive }}
       deployed_at={{ ansible_date_time.iso8601 }}
       host={{ inventory_hostname }}

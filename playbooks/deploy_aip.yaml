@@ -3,8 +3,5 @@
   hosts: clients
   become: true
 
-  vars:
-    aip_kit_dir: "{{ aip_kit_dir | default('') }}"
-
   roles:
     - aip_local_kit_deploy

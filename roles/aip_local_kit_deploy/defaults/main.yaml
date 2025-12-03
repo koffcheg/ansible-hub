@@ -1,13 +1,8 @@
----
 aip_deploy_user: checkout
+
 aip_eject_kits_root: "/home/{{ aip_deploy_user }}/eject_kits"
 aip_deploy_root: "/home/{{ aip_deploy_user }}/deployments"
 
-# Provided via CLI:
-# -e "aip_kit_dir=v1.0.1"
-aip_kit_dir: ""
-
-# Compose settings
-aip_compose_enabled: true
-aip_compose_workdir_relpath: "."
-aip_compose_file_relpath: "docker-compose.yml"
+# required via -e
+aip_kit_archive: ""
+aip_store_id: ""
