@@ -1,0 +1,10 @@
+# playbooks/jetson_full_provision.yaml
+---
+- name: Full Eco Boutique client provision
+  hosts: clients
+  become: true
+
+  roles:
+    - jetson_
+    - jetson_docker
+    - jetson_aip_prereqs  

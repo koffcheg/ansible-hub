@@ -20,3 +20,5 @@ jetson_docker_daemon_config: "/etc/docker/daemon.json"
 
 # Docker data root
 jetson_docker_data_root: "/var/lib/docker"
+
+jetson_reboot_after_docker: true

@@ -1,0 +1,90 @@
+---
+- name: Ensure checkout is in required groups
+  become: true
+  user:
+    name: checkout
+    groups: "sudo,audio,video,docker,ssl-cert"
+    append: true
+
+- name: Install sudoers file for Ansible / automation
+  become: true
+  copy:
+    src: checkout-ansible
+    dest: /etc/sudoers.d/checkout-ansible
+    owner: root
+    group: root
+    mode: "0440"
+    validate: "visudo -cf %s"
+
+- name: Enable linger for checkout (user systemd needed for pulseaudio)
+  become: true
+  command: loginctl enable-linger checkout
+  changed_when: false
+
+# Intall dependencies
+- name: Update apt cache
+  become: true
+  apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install system packages required by Eco Boutique provision guide
+  become: true
+  apt:
+    name:
+      - curl
+      - gnupg
+      - lsb-release
+      - ca-certificates
+      - alsa-base
+      - alsa-utils
+      - libasound2
+      - libasound2-plugins
+      - pulseaudio
+      - pulseaudio-utils
+      - libpulse0
+      - libpulsedsp
+      - xserver-xorg
+      - xserver-xorg-core
+      - x11-utils
+      - x11-xserver-utils
+      - xserver-xorg-input-evdev
+      - python3
+      - python3-pip
+    state: present
+
+- name: Install Python libraries required by Eco Boutique provision guide
+  become: true
+  pip:
+    name:
+      - flask
+      - prometheus_client
+      - jetson-stats
+    executable: pip3
+  when: not ansible_check_mode
+
+# Add runtime .env vars
+- name: Ensure ~/.profile contains eco kiosk environment block
+  become: true
+  become_user: checkout
+  blockinfile:
+    path: /home/checkout/.profile
+    create: yes
+    marker: "# {mark} ECO_KIOSK_ENV"
+    block: |
+      # ECO Boutique kiosk environment
+      if [ -z "$DISPLAY" ]; then
+        export DISPLAY=":0"
+      fi
+
+      if [ -z "$XDG_RUNTIME_DIR" ]; then
+        export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+      fi
+
+      if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
+        export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+      fi
+
+      if [ -z "$PULSE_SERVER" ]; then
+        export PULSE_SERVER="unix:$XDG_RUNTIME_DIR/pulse/native"
+      fi
