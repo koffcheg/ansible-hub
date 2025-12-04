@@ -2,6 +2,19 @@
 
 This repository provides a fully automated, production-grade system for managing VPN clients using OpenVPN, Ansible, and GCP Secret Manager. It supports full lifecycle operations: creation, rotation, deletion, and factory provisioning for Jetson or other factory clients.
 
+Get to the dir: 
+
+`sudo -u -i koffcheg`
+
+`cd ansible-hub`
+
+Enter a virtual environment:
+
+`source ~/.ansible-venv/bin/activate`
+
+Verify SSH connectivity to all hosts defined in your inventory:
+
+`ansible -i inventory/production.ini all -m ping`
 ---
 
 ## 📁 Directory Structure
@@ -19,15 +32,24 @@ This repository provides a fully automated, production-grade system for managing
 ├── playbooks/
 │   ├── create_and_upload.yaml
 │   ├── delete_clients.yaml
+│   ├── deploy_aip.yaml
 │   ├── factory_pull.yaml
-│   ├── update_and_install.yaml
+│   ├── jetson_bootstrap.yaml
 │   ├── monitoring_sync_jetsons.yaml
+│   ├── sync_aip.yaml
+│   ├── update_and_install.yaml
 │   ├── tasks/
 │   │   ├── create_per_client.yaml
 │   │   └── rotate_per_client.yaml
-│   ├── templates/
-│   │   └── install.sh.j2
+│   └── templates/
+│       └── install.sh.j2
 ├── roles/
+│   ├── aip_content_sync/
+│   ├── aip_local_kit_deploy/
+│   ├── jetson_aip_prereqs/
+│   ├── jetson_base/
+│   ├── jetson_docker/
+│   ├── monitoring_prometheus_config/
 │   ├── vpn_cert/
 │   │   ├── tasks/
 │   │   │   ├── create.yaml
@@ -55,6 +77,8 @@ This repository provides a fully automated, production-grade system for managing
 ---
 
 ## 🚀 Main Playbooks
+
+All playbooks are run from the repository root and target the inventory in `inventory/production.ini.` Replace the sample client names with your actual client identifiers.
 
 ### 1. `create_and_upload.yaml`
 
@@ -106,6 +130,36 @@ ansible-playbook -i inventory/production.ini playbooks/monitoring_sync_jetsons.y
 ansible-playbook -i inventory/production.ini playbooks/monitoring_sync_jetsons.yaml
 ```
 
+### 6. `deploy_aip.yaml`
+
+Deploys the AIP kit to clients. This playbook runs the aip_local_kit_deploy role on all hosts in the clients group with privilege escalation enabled
+
+Example usage:
+
+```bash
+ansible-playbook -i inventory/production.ini playbooks/deploy_aip.yaml
+```
+
+### 7. `sync_aip.yaml`
+
+Synchronizes AIP content across clients. Facts gathering is disabled for speed, and the playbook simply invokes the aip_content_sync role on the clients group
+
+Example usage:
+
+```bash
+ansible-playbook -i inventory/production.ini playbooks/sync_aip.yaml
+```
+
+### 8. `jetson_bootstrap.yaml`
+
+Bootstraps a Jetson client with the base environment, Docker engine and AIP prerequisites. This is a lightweight full provision for new Jetson eco‑boutique deployments: it applies the roles jetson_base, jetson_docker and jetson_aip_prereqs with privilege escalation
+
+Example usage:
+
+```bash
+ansible-playbook -i inventory/production.ini playbooks/jetson_bootstrap.yaml
+```
+
 ---
 
 ## ⚙️ Requirements
@@ -152,3 +206,4 @@ This list is used by both VPN lifecycle playbooks and the Prometheus monitoring 
 
 - Always pass vars using JSON (`-e '{"client_name": "client77"}'`)
 - Use inventory in `inventory/production.ini` to define remote client connections
+- You can dry‑run dangerous changes with `--check --diff` before applying.
