@@ -4,7 +4,7 @@ This repository provides a fully automated, production-grade system for managing
 
 Get to the dir: 
 
-`sudo -u -i koffcheg`
+`sudo -i -u koffcheg`
 
 `cd ansible-hub`
 
@@ -137,7 +137,7 @@ Deploys the AIP kit to clients. This playbook runs the aip_local_kit_deploy role
 Example usage:
 
 ```bash
-ansible-playbook -i inventory/production.ini playbooks/deploy_aip.yaml
+ansible-playbook -i inventory/production.ini playbooks/deploy_aip.yaml -l client51 -e "aip_kit_archive=aip-ecopod-2025.11.27-v1.0.1.tar.zst" -e "aip_store_id=115"
 ```
 
 ### 7. `sync_aip.yaml`
@@ -147,7 +147,7 @@ Synchronizes AIP content across clients. Facts gathering is disabled for speed, 
 Example usage:
 
 ```bash
-ansible-playbook -i inventory/production.ini playbooks/sync_aip.yaml
+ansible-playbook -i inventory/production.ini playbooks/aip_content_sync.yaml -l client51 -e "bundle_id=global-settings-v1
 ```
 
 ### 8. `jetson_bootstrap.yaml`
@@ -157,7 +157,7 @@ Bootstraps a Jetson client with the base environment, Docker engine and AIP prer
 Example usage:
 
 ```bash
-ansible-playbook -i inventory/production.ini playbooks/jetson_bootstrap.yaml
+ansible-playbook -i inventory/production.ini playbooks/jetson_bootstrap.yaml -l client51
 ```
 
 ---
