@@ -4,17 +4,24 @@ This repository provides a fully automated, production-grade system for managing
 
 Get to the dir: 
 
-`sudo -i -u koffcheg`
+```bash
+sudo -i -u koffcheg
 
-`cd ansible-hub`
+cd ansible-hub
+```
 
 Enter a virtual environment:
 
-`source ~/.ansible-venv/bin/activate`
+```bash
+source ~/.ansible-venv/bin/activate
+```
 
 Verify SSH connectivity to all hosts defined in your inventory:
 
-`ansible -i inventory/production.ini all -m ping`
+```bash
+ansible -i inventory/production.ini all -m ping
+```
+
 ---
 
 ## 📁 Directory Structure
