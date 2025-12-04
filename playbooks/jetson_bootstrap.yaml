@@ -5,6 +5,6 @@
   become: true
 
   roles:
-    - jetson_
+    - jetson_base
     - jetson_docker
     - jetson_aip_prereqs  
